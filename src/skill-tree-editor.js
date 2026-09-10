@@ -50,6 +50,31 @@ const PvuSkillTreeEditor = (() => {
   }
 
   /**
+   * BUG 5 FIX: normalizza lockedSkills in un array.
+   * Il gioco può salvarlo come array, Map, o oggetto { [skillId]: {...} }.
+   */
+  function toSkillArray(locked) {
+    if (!locked) return [];
+    if (Array.isArray(locked)) return locked;
+    if (typeof locked === 'string') return [{ skillId: locked }];
+    if (typeof locked === 'object') {
+      // Map-like
+      if (typeof locked.values === 'function' && typeof locked.size === 'number') {
+        return Array.from(locked.values());
+      }
+      // Object-like: { [skillId]: data }
+      return Object.keys(locked).map(function(k) {
+        const v = locked[k];
+        if (v && typeof v === 'object') {
+          return Object.assign({ skillId: k }, v);
+        }
+        return { skillId: k };
+      });
+    }
+    return [];
+  }
+
+  /**
    * Get locked skills del champion corrente.
    */
   function getLockedSkills() {
@@ -59,7 +84,7 @@ const PvuSkillTreeEditor = (() => {
     if (!champId) return [];
     const champData = gd.championData && gd.championData[champId];
     if (!champData) return [];
-    return champData.lockedSkills || [];
+    return toSkillArray(champData.lockedSkills);
   }
 
   /**
@@ -96,13 +121,15 @@ const PvuSkillTreeEditor = (() => {
       champData = gd.championData[champId];
     }
 
-    // 1. Rimuovi da lockedSkills
+    // 1. Rimuovi da lockedSkills (supporta array, Map, oggetto)
     if (champData.lockedSkills) {
-      const idx = champData.lockedSkills.findIndex(function(s) {
+      const lockedArr = toSkillArray(champData.lockedSkills);
+      const idx = lockedArr.findIndex(function(s) {
         return s.skillId === skillId || s.id === skillId || s === skillId;
       });
       if (idx !== -1) {
-        champData.lockedSkills.splice(idx, 1);
+        lockedArr.splice(idx, 1);
+        champData.lockedSkills = lockedArr; // riscrivi normalizzato
         log('Skill', skillId, 'rimossa da lockedSkills');
       }
     }

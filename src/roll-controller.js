@@ -1,19 +1,32 @@
 // src/roll-controller.js — 3 toggle onesti + itemcount slider
+// FIX BUG 2: getRerollCost is on SelectModifierPhase (su), NOT on the scene.
+// Strategy: intercept phases as they enter the scene via pushPhase/unshiftPhase,
+// then patch the phase instance directly.
 const PvuRollController = (() => {
   const LOG_PREFIX = '[PvuRollController]';
 
   // Stato toggle
   const state = {
-    freeReroll: false,         // oneshot: si resetta dopo l'uso
-    costOverride: false,       // persistente: WAIVE_ROLL_FEE_OVERRIDE
-    poolQuality: false,        // persistente: forza rarità Legendary
-    itemCountExtra: 2,         // slider: +0..+4 (default +2)
-    active: false,             // modulo attivo
+    freeReroll: false,
+    costOverride: false,
+    poolQuality: false,
+    itemCountExtra: 2,
+    active: false,
     hooksApplied: false,
+    patchedPhaseCount: 0,   // quante phase sono state patchate
+    lastPatchedPhase: null, // tipo dell'ultima phase patchata
   };
 
   // Hook refs per unpatch
   const unpatchFns = [];
+
+  // Original functions for delegation (set when patching)
+  const originals = {
+    getRerollCost: null,
+    getPlayerModifierTypeOptions: null,
+    getRaritiesForRewardType: null,
+    updateMoneyText: null,
+  };
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -23,129 +36,207 @@ const PvuRollController = (() => {
   }
 
   /**
-   * Hook getRerollCost per free reroll (oneshot) e cost override (persistente).
+   * Patch una phase instance con i nostri hook.
+   * Chiamata dal phase observer interceptor quando una fase viene pushata/unshiftata.
+   * @param {object} phaseObj - L'istanza della fase
    */
-  function hookGetRerollCost() {
-    const bridge = window.__pvu.bridge;
-    const scene = bridge.getBattleScene();
-    if (!scene) return false;
-
-    const proto = Object.getPrototypeOf(scene);
-    if (!proto || !proto.getRerollCost) {
-      log('getRerollCost non trovato su proto — skip');
-      return false;
-    }
-
+  function patchPhase(phaseObj) {
+    if (!phaseObj) return;
     const helpers = window.__pvu.helpers;
-    const r = helpers.hookPrototype(proto, 'getRerollCost', function(original, args) {
-      // Cost Override: WAIVE_ROLL_FEE_OVERRIDE nativo
-      if (state.costOverride) {
-        log('Cost Override attivo → ritorno {0, 0}');
-        return { cost: 0, permaCost: 0 };
-      }
+    if (!helpers) return;
 
-      // Free Reroll: costo 0 una volta, poi auto-off
-      if (state.freeReroll) {
-        log('Free Reroll attivo → ritorno {0, 0}');
-        state.freeReroll = false;
-        emitStateChange();
-        return { cost: 0, permaCost: 0 };
-      }
+    let patched = false;
 
-      // Chiamata normale
-      return original.apply(this, arguments);
-    });
-
-    unpatchFns.push(r.unpatch);
-    log('getRerollCost hooked');
-    return true;
-  }
-
-  /**
-   * Hook getModifierTypeOptions/getPlayerModifierTypeOptions per itemcount.
-   * La funzione riceve il count come primo parametro → lo incrementiamo.
-   */
-  function hookGetModifierTypeOptions() {
-    const bridge = window.__pvu.bridge;
-    const scene = bridge.getBattleScene();
-    if (!scene) return false;
-
-    const proto = Object.getPrototypeOf(scene);
-    const helpers = window.__pvu.helpers;
-
-    // Hook getPlayerMethodTypeOptions se presente (il nome "keepNames" nel bundle)
-    if (proto.getPlayerModifierTypeOptions) {
-      const r = helpers.hookPrototype(proto, 'getPlayerModifierTypeOptions', function(original, args) {
-        if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
-          const originalCount = args[0];
-          args[0] = originalCount + state.itemCountExtra;
-          log('Itemcount: ' + originalCount + ' → ' + args[0] + ' (extra: +' + state.itemCountExtra + ')');
-        }
-        return original.apply(this, args);
-      });
-      unpatchFns.push(r.unpatch);
-      log('getPlayerModifierTypeOptions hooked');
-      return true;
-    }
-
-    // Fallback: cerca un metodo che contiene "ModifierType" nel nome
-    const candidates = ['getModifierTypeOptions', 'getNewModifierTypeOption'];
-    for (const cand of candidates) {
-      if (proto[cand]) {
-        const r = helpers.hookPrototype(proto, cand, function(original, args) {
-          if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
-            args[0] = args[0] + state.itemCountExtra;
-            log('Itemcount via ' + cand + ': +' + state.itemCountExtra);
+    // --- getRerollCost: è un method di SelectModifierPhase (su) ---
+    if (typeof phaseObj.getRerollCost === 'function' && !phaseObj._pvu_rerollHooked) {
+      originals.getRerollCost = phaseObj.getRerollCost.bind(phaseObj);
+      const orig = phaseObj.getRerollCost;
+      phaseObj.getRerollCost = function() {
+        const args = Array.from(arguments);
+        try {
+          // Cost Override: WAIVE_ROLL_FEE_OVERRIDE nativo
+          if (state.costOverride) {
+            log('Cost Override attivo → ritorno {rerollCost:0, permaRerollCost:0}');
+            return { rerollCost: 0, permaRerollCost: 0 };
           }
-          return original.apply(this, args);
-        });
-        unpatchFns.push(r.unpatch);
-        log(cand + ' hooked');
-        return true;
-      }
+          // Free Reroll: costo 0 una volta, poi auto-off
+          if (state.freeReroll) {
+            log('Free Reroll attivo → ritorno {rerollCost:0, permaRerollCost:0}');
+            state.freeReroll = false;
+            emitStateChange();
+            return { rerollCost: 0, permaRerollCost: 0 };
+          }
+          // Chiamata normale
+          return orig.apply(phaseObj, args);
+        } catch (e) {
+          warn('hook getRerollCost error:', e);
+          return orig.apply(phaseObj, args);
+        }
+      };
+      phaseObj._pvu_rerollHooked = true;
+      patched = true;
+      log('getRerollCost patched su phase instance');
     }
 
-    log('Nessuna funzione ModifierTypeOptions trovata su proto');
-    return false;
-  }
+    // --- getModifierTypeOptions / getPlayerModifierTypeOptions ---
+    // Nel bundle: getPlayerModifierTypeOptions è una function Wd chiamata come Wd.call(scene, count)
+    // La scene ha un metodo che delega. Cerchiamo un metodo sul scene che chiama Wd.
+    // Alternativa: hook direttamente sulla battle scene il metodo che genera le opzioni.
+    // Cerchiamo sulla scene prototype (dalla battle scene) il metodo che può essere getModifierTypeOptions.
 
-  /**
-   * Hook getRaritiesForRewardType per pool quality.
-   * Se poolQuality è attivo, forza il ritorno di rarità alta (Legendary/Master).
-   */
-  function hookGetRaritiesForRewardType() {
     const bridge = window.__pvu.bridge;
-    const scene = bridge.getBattleScene();
-    if (!scene) return false;
-
-    const proto = Object.getPrototypeOf(scene);
-    const helpers = window.__pvu.helpers;
-
-    if (proto.getRaritiesForRewardType) {
-      const r = helpers.hookPrototype(proto, 'getRaritiesForRewardType', function(original, args) {
-        if (state.poolQuality) {
-          // Forza ritorno di almeno un legendary/master
-          const result = original.apply(this, args);
-          if (Array.isArray(result)) {
-            // Aggiungi o forza Legendary/Master
-            // St: ROGUE=0, MASTER=1, LEGENDARY=2, GREAT=3
-            // Per garantire legendary: assicura che il risultato contenga tier basso (0-2)
-            if (result.indexOf(0) === -1 && result.indexOf(1) === -1 && result.indexOf(2) === -1) {
-              result.unshift(2); // Legendary
-              log('Pool quality: forzato Legendary nel pool');
+    const scene = bridge ? bridge.getBattleScene() : null;
+    if (scene) {
+      // Hook getModifierTypeOptions sulla scene prototype (se presente)
+      if (!state._sceneOptionsHooked) {
+        const sceneProto = Object.getPrototypeOf(scene);
+        if (sceneProto) {
+          // Cerca il metodo che genera le opzioni del modifier
+          // Nel bundle: la scene chiama Wd(getModifierTypeOptions) che è il metodo che produce le opzioni
+          // Il metodo è sulla SelectModifierPhase.prototype / scene.prototype
+          const candidates = ['getModifierTypeOptions', 'getNewModifierTypeOption', 'getPlayerModifierTypeOptions'];
+          for (let ci = 0; ci < candidates.length; ci++) {
+            const cand = candidates[ci];
+            if (typeof sceneProto[cand] === 'function' && !state['_hooked_' + cand]) {
+              originals.getPlayerModifierTypeOptions = sceneProto[cand].bind(scene);
+              const r = helpers.hookPrototype(sceneProto, cand, function(original, args) {
+                if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
+                  const origCount = args[0];
+                  args[0] = origCount + state.itemCountExtra;
+                  log('Itemcount: ' + origCount + ' → ' + args[0] + ' (extra: +' + state.itemCountExtra + ')');
+                }
+                return original.apply(this, args);
+              });
+              unpatchFns.push(r.unpatch);
+              state['_hooked_' + cand] = true;
+              state._sceneOptionsHooked = true;
+              patched = true;
+              log(cand + ' hooked su scene prototype');
+              break;
             }
           }
-          return result;
         }
-        return original.apply(this, args);
-      });
-      unpatchFns.push(r.unpatch);
-      log('getRaritiesForRewardType hooked');
-      return true;
+
+        // FALLBACK: se non troviamo il metodo per nome, cerchiamo per ARITY + comportamento
+        if (!state._sceneOptionsHooked && scene) {
+          // Cerca un metodo che: accetta 1 arg numerico e ritorna array di oggetti
+          // Questo è il pattern di getModifierTypeOptions / getPlayerModifierTypeOptions
+          const sceneProto = Object.getPrototypeOf(scene);
+          if (sceneProto) {
+            const methodNames = Object.getOwnPropertyNames(sceneProto);
+            for (let mi = 0; mi < methodNames.length; mi++) {
+              const mname = methodNames[mi];
+              if (mname === 'constructor' || mname.indexOf('_pvu') === 0) continue;
+              if (state['_arityChecked_' + mname]) continue;
+
+              try {
+                const fn = sceneProto[mname];
+                if (typeof fn !== 'function') continue;
+                // Test arity: should accept at least 1 parameter
+                if (fn.length < 1 || fn.length > 3) continue;
+
+                // Check if return looks like it could be options (heuristic via toString)
+                const src = fn.toString();
+                // getModifierTypeOptions usually contains "WeightedModifierType" or "getRaritiesForRewardType"
+                if (src.indexOf('RaritiesForReward') !== -1 ||
+                    src.indexOf('ModifierType') !== -1 ||
+                    src.indexOf('WeightedModifier') !== -1) {
+                  originals.getPlayerModifierTypeOptions = fn.bind(scene);
+                  const r = helpers.hookPrototype(sceneProto, mname, function(original, args) {
+                    if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
+                      args[0] = args[0] + state.itemCountExtra;
+                      log('Itemcount via arity-matched ' + mname + ': +' + state.itemCountExtra);
+                    }
+                    return original.apply(this, args);
+                  });
+                  unpatchFns.push(r.unpatch);
+                  state._sceneOptionsHooked = true;
+                  patched = true;
+                  log(mname + ' hooked via arity+source-match (Itemcount)');
+                  break;
+                }
+              } catch(e) { /* skip */ }
+              state['_arityChecked_' + mname] = true;
+            }
+          }
+        }
+      }
     }
 
-    log('getRaritiesForRewardType non trovato su proto');
-    return false;
+    // --- getRaritiesForRewardType ---
+    // È una funzione standalone bne, chiamata dal context del gioco.
+    // La troviamo cercando tra i prototype methods della scene o della phase.
+    if (!state._raritiesHooked) {
+      const sceneProto = scene ? Object.getPrototypeOf(scene) : null;
+      const candidates2 = ['getRaritiesForRewardType', 'getRaritiesForReward'];
+      if (sceneProto) {
+        for (let ri = 0; ri < candidates2.length; ri++) {
+          const rcand = candidates2[ri];
+          if (typeof sceneProto[rcand] === 'function') {
+            originals.getRaritiesForRewardType = sceneProto[rcand].bind(scene);
+            const r = helpers.hookPrototype(sceneProto, rcand, function(original, args) {
+              if (state.poolQuality) {
+                const result = original.apply(this, args);
+                if (Array.isArray(result)) {
+                  if (result.indexOf(0) === -1 && result.indexOf(1) === -1 && result.indexOf(2) === -1) {
+                    result.unshift(2); // Legendary
+                    log('Pool quality: forzato Legendary nel pool');
+                  }
+                }
+                return result;
+              }
+              return original.apply(this, args);
+            });
+            unpatchFns.push(r.unpatch);
+            state._raritiesHooked = true;
+            patched = true;
+            log(rcand + ' hooked');
+            break;
+          }
+        }
+      }
+
+      // Fallback: cerca per arity+source
+      if (!state._raritiesHooked && sceneProto) {
+        const methodNames = Object.getOwnPropertyNames(sceneProto);
+        for (let mi = 0; mi < methodNames.length; mi++) {
+          const mname = methodNames[mi];
+          if (mname === 'constructor' || mname.indexOf('_pvu') === 0 || state['_raritiesArity_' + mname]) continue;
+          try {
+            const fn = sceneProto[mname];
+            if (typeof fn !== 'function' || fn.length > 2) continue;
+            const src = fn.toString();
+            if (src.indexOf('RARITIES') !== -1 || src.indexOf('rarity') !== -1 || src.indexOf('ROGUE') !== -1) {
+              originals.getRaritiesForRewardType = fn.bind(scene);
+              const r = helpers.hookPrototype(sceneProto, mname, function(original, args) {
+                if (state.poolQuality) {
+                  const result = original.apply(this, args);
+                  if (Array.isArray(result)) {
+                    if (result.indexOf(0) === -1 && result.indexOf(1) === -1 && result.indexOf(2) === -1) {
+                      result.unshift(2);
+                      log('Pool quality: forzato Legendary via arity-matched ' + mname);
+                    }
+                  }
+                  return result;
+                }
+                return original.apply(this, args);
+              });
+              unpatchFns.push(r.unpatch);
+              state._raritiesHooked = true;
+              patched = true;
+              log(mname + ' hooked via arity+source-match (Rarities)');
+              break;
+            }
+          } catch(e) { /* skip */ }
+          state['_raritiesArity_' + mname] = true;
+        }
+      }
+    }
+
+    if (patched) {
+      state.patchedPhaseCount++;
+      state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
+    }
   }
 
   /**
@@ -163,23 +254,88 @@ const PvuRollController = (() => {
   }
 
   /**
-   * Applica tutti gli hook quando la battle scene è disponibile.
+   * Register phase interceptors con il phase observer.
+   * Chiamato da init().
+   */
+  function registerPhaseInterceptors() {
+    const observer = window.__pvu.phaseObserver;
+    if (!observer) {
+      warn('phaseObserver non disponibile');
+      return;
+    }
+
+    // Patch phase instances quando vengono pushate o unshiftate
+    observer.onPhasePush(function(phaseObj) {
+      patchPhase(phaseObj);
+      checkHooksApplied();
+    });
+    observer.onPhaseUnshift(function(phaseObj) {
+      patchPhase(phaseObj);
+      checkHooksApplied();
+    });
+
+    log('Phase interceptors registrati');
+  }
+
+  /**
+   * Verifica se gli hooks critici sono stati applicati.
+   */
+  function checkHooksApplied() {
+    if (state.hooksApplied) return;
+
+    // Consideriamo "applied" se almeno getRerollCost è stato patchato
+    if (originals.getRerollCost) {
+      state.hooksApplied = true;
+      state.active = true;
+      log('Hooks applicati con successo (getRerollCost patched)');
+      emitStateChange();
+    }
+  }
+
+  /**
+   * Applica hooks — ora registra interceptor invece di cercare direttamente.
    */
   function applyHooks() {
     if (state.hooksApplied) return true;
 
-    const bridge = window.__pvu.bridge;
-    const scene = bridge.getBattleScene();
-    if (!scene) return false;
+    // Registra interceptor per le fasi future
+    registerPhaseInterceptors();
 
-    let ok = true;
-    if (!hookGetRerollCost()) ok = false;
-    if (!hookGetModifierTypeOptions()) ok = false;
-    if (!hookGetRaritiesForRewardType()) ok = false;
+    // Prova anche a patchare la phase corrente se esiste già nella coda
+    // (nel caso il bottone roll venga premuto prima che il nostro hook catturi la fase)
+    tryPatchCurrentPhase();
 
-    state.hooksApplied = ok;
-    state.active = true;
-    return ok;
+    return state.hooksApplied;
+  }
+
+  /**
+   * Tenta di patchare la phase corrente dalla coda del scene.
+   */
+  function tryPatchCurrentPhase() {
+    try {
+      const bridge = window.__pvu.bridge;
+      if (!bridge) return;
+      const game = bridge.getGame();
+      if (!game || !game.scene) return;
+
+      // Cerca phases attive nella coda della scena
+      const sceneManager = game.scene;
+      const scenes = sceneManager.scenes;
+      if (!scenes) return;
+
+      for (const key in scenes) {
+        const s = scenes[key];
+        if (!s || !s.scene || !s.scene._phases) continue;
+        const phases = s.scene._phases;
+        for (let i = 0; i < phases.length; i++) {
+          const p = phases[i];
+          if (p && typeof p.getRerollCost === 'function' && !p._pvu_rerollHooked) {
+            patchPhase(p);
+            checkHooksApplied();
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
   }
 
   function emitStateChange() {
@@ -191,7 +347,7 @@ const PvuRollController = (() => {
   // === Toggle API ===
 
   function toggleFreeReroll() {
-    state.freeReroll = true; // sempre oneshot
+    state.freeReroll = true;
     log('Free Reroll: ON (prossimo reroll sarà gratuito)');
     emitStateChange();
     return true;
@@ -227,6 +383,8 @@ const PvuRollController = (() => {
       itemCountExtra: state.itemCountExtra,
       active: state.active,
       hooksApplied: state.hooksApplied,
+      patchedPhaseCount: state.patchedPhaseCount,
+      lastPatchedPhase: state.lastPatchedPhase,
     };
   }
 
@@ -235,8 +393,13 @@ const PvuRollController = (() => {
       try { unpatchFns[i](); } catch(e) {}
     }
     unpatchFns.length = 0;
+    originals.getRerollCost = null;
+    originals.getPlayerModifierTypeOptions = null;
+    originals.getRaritiesForRewardType = null;
+    originals.updateMoneyText = null;
     state.hooksApplied = false;
     state.active = false;
+    state.patchedPhaseCount = 0;
     log('destroy');
   }
 

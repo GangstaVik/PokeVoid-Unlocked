@@ -201,7 +201,8 @@ const PvuSkillScreen = (() => {
     if (statusEl) {
       const sp = editor.getSkillPoints();
       const champId = editor.getSelectedChampionId();
-      const locked = editor.getLockedSkills();
+      // BUG 5 FIX: garanzia array, mai undefined
+      const locked = (editor.getLockedSkills && editor.getLockedSkills()) || [];
       statusEl.textContent = 'SP: ' + sp + ' | Champion: ' + (champId || 'nessuno') + ' | Bloccate: ' + locked.length;
       statusEl.className = 'pvu-status ok';
     }

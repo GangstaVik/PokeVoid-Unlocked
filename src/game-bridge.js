@@ -55,7 +55,6 @@ const PvuGameBridge = (() => {
 
   /**
    * Cattura il bundle source per lookups.
-   * Cerca tutti gli script tag src che contengono il bundle e fetcha il contenuto.
    */
   function captureBundleSource() {
     try {
@@ -63,12 +62,9 @@ const PvuGameBridge = (() => {
       const scripts = document.querySelectorAll('script[src]');
       for (const s of scripts) {
         if (s.src && s.src.indexOf('assets/index') !== -1) {
-          // Non possiamo fare fetch (non siamo in sway). Ma il bundle potrebbe essere
-          // nello stesso scope. Proviamo a cercare nel DOM script inline.
           log('Bundle script trovato:', s.src);
         }
       }
-      // Leggi script inline dal DOM
       const allScripts = document.querySelectorAll('script:not([src])');
       let combined = '';
       for (const s of allScripts) {
@@ -85,32 +81,6 @@ const PvuGameBridge = (() => {
     } catch (e) {
       warn('captureBundleSource fallito:', e);
       return false;
-    }
-  }
-
-  /**
-   * LIVELLO 1c: Usa Function.prototype.toString() sui prototype methods
-   * per trovare e wrappare funzioni del gioco direttamente.
-   */
-  function hookViaProtoMethods() {
-    if (STATE.hooked) return;
-    STATE.hooked = true;
-
-    // Wrappa tutti i prototype dei Phaser Object per cercare nomi target
-    try {
-      const Phaser = window.Phaser;
-      if (!Phaser) return;
-
-      // Cerca tra tutti gli oggetti globali per trovare i prototype
-      const protoTargets = {};
-      const searchNames = ['getRerollCost', 'getPlayerModifierTypeOptions', 'getRaritiesForRewardType',
-                           'updateMoneyText', 'updateGameInfo', 'unshiftPhase', 'pushPhase'];
-
-      // Salta cercare nel bundle: cerchiamo direttamente le classi che il gioco espone
-      // Nota: con esbuild keepNames, i prototype methods sono normali metodi sugli oggetti
-      log('hookViaProtoMethods: ricerca methods non implementata senza bundle source');
-    } catch (e) {
-      warn('hookViaProtoMethods error:', e);
     }
   }
 
@@ -142,10 +112,13 @@ const PvuGameBridge = (() => {
 
   /**
    * LIVELLO 3: CanvasPool fallback.
+   * FIX BUG 1: Phaser.Display.Canvas.CanvasPool (reale) con fallback a window.Phaser.CanvasPool.
    */
   function getFromCanvasPool() {
     try {
-      const pool = window.Phaser && window.Phaser.CanvasPool;
+      const pool = (window.Phaser && window.Phaser.Display && window.Phaser.Display.Canvas && window.Phaser.Display.Canvas.CanvasPool)
+                 || (window.Phaser && window.Phaser.CanvasPool)
+                 || null;
       if (!pool || !pool.pool || !pool.pool.length) return null;
       const entry = pool.pool[0];
       if (!entry || !entry.parent || !entry.parent.game) return null;
@@ -190,7 +163,6 @@ const PvuGameBridge = (() => {
   function getGameData() {
     const scene = getBattleScene();
     if (scene && scene.gameData) return scene.gameData;
-    // fallback: cerca in game
     const game = getGame();
     if (game && game.scene && game.scene.scenes) {
       for (const key in game.scene.scenes) {
@@ -214,10 +186,6 @@ const PvuGameBridge = (() => {
    * Refresh cache dello username.
    */
   function refreshUsername() {
-    const scene = getBattleScene();
-    if (scene && scene.scene && scene.scene.settings && scene.scene.settings.key) {
-      // il nome utente è nel gameData o nel window.gameInfo
-    }
     STATE.username = window.__pvu.storage.getUsername();
     return STATE.username;
   }
@@ -242,7 +210,6 @@ const PvuGameBridge = (() => {
       pollCount++;
       const game = getGame();
       if (game) {
-        // Il gioco è disponibile — prova a catturare gameData
         const gd = getGameData();
         if (gd) {
           log('gameData trovato via game instance');
@@ -251,7 +218,6 @@ const PvuGameBridge = (() => {
         }
       }
 
-      // Prova via CanvasPool
       const scene = getBattleScene();
       if (scene) {
         log('battle scene trovato via CanvasPool');
@@ -259,12 +225,11 @@ const PvuGameBridge = (() => {
         return;
       }
 
-      // Fallback: poll window.gameInfo
       if (pollGameInfo()) {
         log('gameInfo disponibile');
       }
 
-      if (pollCount > 120) { // 60 secondi
+      if (pollCount > 120) {
         log('timeout polling — il gioco non è partito?');
         clearInterval(pollInterval);
       }
@@ -282,14 +247,12 @@ const PvuGameBridge = (() => {
   }
 
   /**
-   * Get gameData per utente corrente (trova dal scene.settings.key o dal runner).
-   * Cerca in tutte le scene attive.
+   * Get gameData per utente corrente.
    */
   function findGameData() {
     const game = getGame();
     if (!game) return null;
 
-    // Cerca in tutte le scene attive
     if (game.scene && game.scene.scenes) {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
@@ -298,7 +261,6 @@ const PvuGameBridge = (() => {
       }
     }
 
-    // Cerca direttamente sulla battle scene
     const bs = getBattleScene();
     if (bs && bs.gameData) return bs.gameData;
 

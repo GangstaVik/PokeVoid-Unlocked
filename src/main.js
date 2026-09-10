@@ -3,8 +3,16 @@
   'use strict';
 
   const LOG_PREFIX = '[PokeVoid-Unlocked]';
+
+  // BUG 3 FIX: guard doppia iniezione
+  if (window.__pvu && window.__pvu._injected) {
+    return; // già iniettato, esci subito
+  }
+
   const pvu = window.__pvu || {};
   window.__pvu = pvu;
+  pvu._injected = true;
+  pvu._injectedAt = Date.now();
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -72,7 +80,7 @@
       if (applied) {
         log('Roll hooks applicati con successo');
       } else {
-        warn('Alcuni roll hooks non applicati');
+        warn('Alcuni roll hooks non applicati (in attesa phase push/unshift)');
       }
     }
 
@@ -91,7 +99,6 @@
 
     log('Creazione UI...');
 
-    // Crea panel
     if (pvu.panel) {
       pvu.panel.create();
     }

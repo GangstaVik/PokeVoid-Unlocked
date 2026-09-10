@@ -10,6 +10,14 @@ const PvuPanel = (() => {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
   }
 
+  // BUG 4 FIX: formatta importi grandi come 1K/10K/100K/1000K (max 1 decimale, senza .0)
+  function formatMoney(n) {
+    if (n < 1000) return String(n);
+    const k = n / 1000;
+    const rounded = Math.round(k * 10) / 10;
+    return (rounded % 1 === 0 ? String(Math.round(rounded)) : rounded.toFixed(1)) + 'K';
+  }
+
   function create() {
     if (containerEl) return containerEl;
 
@@ -174,12 +182,12 @@ const PvuPanel = (() => {
     // Quick buttons
     const quickRow = document.createElement('div');
     quickRow.className = 'pvu-input-row';
-
     const presets = [1000, 10000, 99999, 999999];
     for (let i = 0; i < presets.length; i++) {
       const btn = document.createElement('button');
       btn.className = 'pvu-btn pvu-btn-sm';
-      btn.textContent = presets[i] >= 1000 ? (presets[i] / 1000) + 'K' : presets[i];
+      // BUG 4 FIX: 99999/1000 = 99.999 → formatta pulito (max 1 decimale, senza .0)
+      btn.textContent = formatMoney(presets[i]);
       btn.addEventListener('click', function() {
         input.value = presets[i];
         applyBtn.click();

@@ -1,7 +1,9 @@
-// src/phase-observer.js — Hook unshiftPhase/pushPhase + poll gameInfo
+// src/phase-observer.js — Hook unshiftPhase/pushPhase + poll gameInfo + phase interceptors
 const PvuPhaseObserver = (() => {
   const LOG_PREFIX = '[PvuPhaseObserver]';
   const listeners = [];
+  const pushInterceptors = [];   // callbacks(phaseInstance) when phase is pushed
+  const unshiftInterceptors = []; // callbacks(phaseInstance) when phase is unshifted
   let lastPhase = null;
   let pollTimer = null;
   let unpatchFns = [];
@@ -18,6 +20,22 @@ const PvuPhaseObserver = (() => {
     if (typeof fn === 'function') listeners.push(fn);
   }
 
+  /**
+   * Registra un interceptor per phase push.
+   * @param {Function} fn - (phaseInstance) => void — chiamato con l'istanza della fase
+   */
+  function onPhasePush(fn) {
+    if (typeof fn === 'function') pushInterceptors.push(fn);
+  }
+
+  /**
+   * Registra un interceptor per phase unshift.
+   * @param {Function} fn - (phaseInstance) => void
+   */
+  function onPhaseUnshift(fn) {
+    if (typeof fn === 'function') unshiftInterceptors.push(fn);
+  }
+
   function emitPhaseChange(newPhase, oldPhase) {
     if (newPhase === oldPhase) return;
     for (let i = 0; i < listeners.length; i++) {
@@ -29,9 +47,21 @@ const PvuPhaseObserver = (() => {
     }
   }
 
+  function emitPush(phaseObj) {
+    for (let i = 0; i < pushInterceptors.length; i++) {
+      try { pushInterceptors[i](phaseObj); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function emitUnshift(phaseObj) {
+    for (let i = 0; i < unshiftInterceptors.length; i++) {
+      try { unshiftInterceptors[i](phaseObj); } catch (e) { /* ignore */ }
+    }
+  }
+
   /**
    * Hook unshiftPhase e pushPhase sulla battle scene prototype.
-   * Il game le chiama quando cambia fase.
+   * Ora emette anche il phase instance per gli interceptor.
    */
   function hookPhaseMethods() {
     const bridge = window.__pvu.bridge;
@@ -44,29 +74,36 @@ const PvuPhaseObserver = (() => {
       return false;
     }
 
-    // Cerca il constructor della battle scene per hookare il prototype
     const proto = Object.getPrototypeOf(scene);
     if (!proto) {
       log('proto non trovato');
       return false;
     }
 
-    // Hook unshiftPhase
+    // Hook unshiftPhase — ora passa anche la phase instance agli interceptor
     if (proto.unshiftPhase) {
       const r1 = helpers.hookPrototype(proto, 'unshiftPhase', function(original, args) {
         const result = original.apply(this, args);
-        try { handlePhaseChange(args[0]); } catch(e) { /* ignore */ }
+        try {
+          var phaseObj = args[0];
+          handlePhaseChange(phaseObj);
+          emitUnshift(phaseObj);
+        } catch(e) { /* ignore */ }
         return result;
       });
       unpatchFns.push(r1.unpatch);
       log('unshiftPhase hooked');
     }
 
-    // Hook pushPhase
+    // Hook pushPhase — ora passa anche la phase instance agli interceptor
     if (proto.pushPhase) {
       const r2 = helpers.hookPrototype(proto, 'pushPhase', function(original, args) {
         const result = original.apply(this, args);
-        try { handlePhaseChange(args[0]); } catch(e) { /* ignore */ }
+        try {
+          var phaseObj = args[0];
+          handlePhaseChange(phaseObj);
+          emitPush(phaseObj);
+        } catch(e) { /* ignore */ }
         return result;
       });
       unpatchFns.push(r2.unpatch);
@@ -77,7 +114,6 @@ const PvuPhaseObserver = (() => {
     if (proto.updateMoneyText) {
       const r3 = helpers.hookPrototype(proto, 'updateMoneyText', function(original, args) {
         try {
-          // Notifica che il money è stato aggiornato
           window.__pvu._lastMoneyUpdate = Date.now();
         } catch(e) {}
         return original.apply(this, args);
@@ -93,7 +129,6 @@ const PvuPhaseObserver = (() => {
     const bridge = window.__pvu.bridge;
     if (!bridge) return;
 
-    // Determina il nome fase
     let phaseName = 'unknown';
     if (typeof phaseObj === 'string') {
       phaseName = phaseObj;
@@ -103,7 +138,6 @@ const PvuPhaseObserver = (() => {
       phaseName = phaseObj.toString();
     }
 
-    // Normalizza
     const normalized = normalizePhaseName(phaseName);
     const oldPhase = bridge.getCurrentPhase();
     bridge.setCurrentPhase(normalized);
@@ -173,7 +207,6 @@ const PvuPhaseObserver = (() => {
   function init() {
     log('init');
 
-    // Aspetta che il battle scene sia disponibile
     let hookAttempts = 0;
     const hookInterval = setInterval(function() {
       hookAttempts++;
@@ -188,7 +221,6 @@ const PvuPhaseObserver = (() => {
       }
     }, 1000);
 
-    // Semple poll come fallback
     startPolling();
   }
 
@@ -200,6 +232,8 @@ const PvuPhaseObserver = (() => {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
     listeners.length = 0;
+    pushInterceptors.length = 0;
+    unshiftInterceptors.length = 0;
     log('destroy');
   }
 
@@ -207,6 +241,8 @@ const PvuPhaseObserver = (() => {
     init: init,
     destroy: destroy,
     onPhaseChange: onPhaseChange,
+    onPhasePush: onPhasePush,
+    onPhaseUnshift: onPhaseUnshift,
     hookPhaseMethods: hookPhaseMethods,
   };
 })();
