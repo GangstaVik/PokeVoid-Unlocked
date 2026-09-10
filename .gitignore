@@ -1,0 +1,17 @@
+# Node.js
+node_modules/
+dist/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Build
+*.min.js
+*.map
