@@ -5,6 +5,9 @@ const PvuPanel = (() => {
   let panelEl = null;
   let isOpen = false;
   let activeTab = 'roll';
+  // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
+  // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
+  let moneyTimer = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -213,7 +216,9 @@ const PvuPanel = (() => {
 
     // Aggiorna stato
     updateMoneyStatus(statusEl, input);
-    setInterval(function() { updateMoneyStatus(statusEl, input); }, 2000);
+    // PARTE 4: nessun leak — clear del timer precedente prima di crearne uno nuovo
+    if (moneyTimer) clearInterval(moneyTimer);
+    moneyTimer = setInterval(function() { updateMoneyStatus(statusEl, input); }, 2000);
   }
 
   function updateMoneyStatus(statusEl, input) {
@@ -245,6 +250,8 @@ const PvuPanel = (() => {
   }
 
   function destroy() {
+    if (moneyTimer) clearInterval(moneyTimer);
+    moneyTimer = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;

@@ -7,6 +7,9 @@ const PvuPhaseObserver = (() => {
   let lastPhase = null;
   let pollTimer = null;
   let unpatchFns = [];
+  // PARTE 4: guardia anti doppio-hook — main.js richiama hookPhaseMethods()
+  // dopo aver trovato la battle scene, ma anche init() retry ogni 1s.
+  let phaseMethodsHooked = false;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -66,7 +69,10 @@ const PvuPhaseObserver = (() => {
   function hookPhaseMethods() {
     const bridge = window.__pvu.bridge;
     const helpers = window.__pvu.helpers;
-    if (!bridge || !helpers) return;
+    if (!bridge || !helpers) return false;
+
+    // PARTE 4: già hookati — evita wrapper annidati (ri-wrap = lag + stack growth)
+    if (phaseMethodsHooked) return true;
 
     const scene = bridge.getBattleScene();
     if (!scene) {
@@ -122,12 +128,20 @@ const PvuPhaseObserver = (() => {
       log('updateMoneyText hooked');
     }
 
+    phaseMethodsHooked = true;
+
     return true;
   }
 
   function handlePhaseChange(phaseObj) {
     const bridge = window.__pvu.bridge;
     if (!bridge) return;
+
+    // PARTE 5: cattura la battle scene dall'istanza phase (phaseObj.scene)
+    // appena esiste una qualsiasi phase — risolve il timing del bridge.
+    if (phaseObj && typeof phaseObj === 'object') {
+      bridge.captureSceneFromPhase(phaseObj);
+    }
 
     let phaseName = 'unknown';
     if (typeof phaseObj === 'string') {
@@ -231,6 +245,7 @@ const PvuPhaseObserver = (() => {
     unpatchFns = [];
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+    phaseMethodsHooked = false;
     listeners.length = 0;
     pushInterceptors.length = 0;
     unshiftInterceptors.length = 0;

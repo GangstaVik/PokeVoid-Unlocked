@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.0.0
+// @version      1.1.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
+// @updateURL    https://raw.githubusercontent.com/GangstaVik/PokeVoid-Unlocked/master/pokevoid-unlocked.user.js
+// @downloadURL  https://raw.githubusercontent.com/GangstaVik/PokeVoid-Unlocked/master/pokevoid-unlocked.user.js
 // @grant        none
 // @run-at       document-start
 // @noframes
@@ -15,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.0.1',
+  VERSION: '1.1.0',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
@@ -40,17 +42,22 @@ const PvuConfig = {
         },
         getPlayerModifierTypeOptions: {
           // standalone function Wd, referenced via keepNames: u(Wd,"getPlayerModifierTypeOptions")
+          // PARTE 2: NON patchabile (funzione standalone, non un metodo di prototype).
+          // Il vecchio hook sceneProto era morto — rimosso dal roll-controller.
           aob: 'u(Wd,"getPlayerModifierTypeOptions")',
           offset: 18558724,
           occurrences: 2,
-          instanceHook: false, // this is called as a function with this=scene, so hook scene prototype
+          instanceHook: false,
+          deprecated: true,
         },
         getRaritiesForRewardType: {
           // standalone function bne, referenced via keepNames: u(bne,"getRaritiesForRewardType")
+          // PARTE 2: NON patchabile (standalone). Rimosso dal roll-controller.
           aob: 'u(bne,"getRaritiesForRewardType")',
           offset: 16259791,
           occurrences: 1,
-          instanceHook: false, // called as method on scene or standalone
+          instanceHook: false,
+          deprecated: true,
         },
         updateMoneyText: {
           // method on battle scene — scene.updateMoneyText()
@@ -71,6 +78,41 @@ const PvuConfig = {
         },
         pushPhase: {
           stringSearch: 'pushPhase',
+        },
+        getModifierTypeOptionsOnPhase: {
+          // method su SelectModifierPhase (su): legge this.scene.lockModifierTiers ? this.modifierTiers : void 0
+          // Punto di aggancio REALE per item count + luck pool (istanza phase, NON standalone)
+          aob: 'getModifierTypeOptions(t){let n=this.pathNodeFilter',
+          offset: 17225564,
+          occurrences: 2, // su (roll) + classe diversa (shop, @17411223)
+          instanceHook: true,
+        },
+        getPartyLuckValue: {
+          // standalone module fn JFe(a){return Le(7,1)} — NON raggiungibile via BFS graph
+          // unico call site: this.arena.randomSpecies(t,n,void 0,JFe(this.party)) @21906050
+          aob: 'u(JFe,"getPartyLuckValue")',
+          offset: 18570036,
+          occurrences: 1,
+          instanceHook: false, // il luck entra come 4° argomento di arena.randomSpecies
+        },
+        randomSpeciesOnArena: {
+          // metodo sull'istanza arena: randomSpecies(t,n,s,i) — i = luck (overridabile)
+          aob: 'randomSpecies(t,n,s,i){var y;const l=this.scene.debugDuelmonWild',
+          offset: 15026398,
+          occurrences: 1,
+          instanceHook: true,
+        },
+        tierEnumEe: {
+          // Ee: MEH=-1, COMMON=0, GREAT=1, ULTRA=2, ROGUE=3, MASTER=4, LUXURY=5
+          aob: 'MEH=-1',
+          offset: 1664935,
+          occurrences: 1,
+        },
+        rarityEnumSt: {
+          // St: COMMON="common", GREAT="great", ULTRA="ultra", ROGUE="rogue", MASTER="master", LEGENDARY="legendary"
+          aob: 'COMMON="common"',
+          offset: 14460592,
+          occurrences: 1,
         },
         WAIVE_ROLL_FEE_OVERRIDE: {
           aob: 'WAIVE_ROLL_FEE_OVERRIDE=!1,this.WAIVE_SHOP_FEES_OVERRIDE',
@@ -201,6 +243,10 @@ const PvuHelpers = (() => {
       console.warn(LOG_PREFIX, 'hookPrototype: target not found', methodName);
       return { unpatch: function() {} };
     }
+    // PARTE 4: anti-riwrap — se già wrappato da noi, non rimpiazzare di nuovo
+    if (Proto[methodName][Symbol.for('pvuPatched')]) {
+      return { unpatch: function() {} };
+    }
     const original = Proto[methodName];
     const wrapped = function() {
       const args = Array.from(arguments);
@@ -211,6 +257,7 @@ const PvuHelpers = (() => {
         return original.apply(this, arguments);
       }
     };
+    wrapped[Symbol.for('pvuPatched')] = true;
     Proto[methodName] = wrapped;
     return {
       unpatch: function() {
@@ -625,8 +672,8 @@ const PvuGameBridge = (() => {
     return getFromCanvasPool();
   }
 
-  /**
-   * Get gameData dal game instance.
+/**
+   * Get game data dal game instance.
    */
   function getGameData() {
     const scene = getBattleScene();
@@ -639,6 +686,29 @@ const PvuGameBridge = (() => {
       }
     }
     return null;
+  }
+
+  /**
+   * PARTE 5: cattura la battle scene da un'istanza di phase (phaseObj.scene).
+   * Chiamato dal phase observer su ogni push/unshift — garantisce che la scene
+   * sia disponibile appena esiste QUALSIASI phase (title incluso).
+   * @param {object} phaseObj - L'istanza della fase
+   */
+  function captureSceneFromPhase(phaseObj) {
+    try {
+      if (STATE.battleScene) return STATE.battleScene;
+      if (phaseObj && typeof phaseObj === 'object' && phaseObj.scene) {
+        const candidate = phaseObj.scene;
+        // La scene della phase è la battle scene (ha moveUpgradesEnabledForRun ecc.)
+        if (candidate && candidate.game) {
+          STATE.battleScene = candidate;
+          window.__pvu_battleScene = candidate;
+          log('Battle scene catturato da phase instance (' +
+              (phaseObj.constructor ? phaseObj.constructor.name : '?') + ')');
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return STATE.battleScene;
   }
 
   /**
@@ -715,12 +785,18 @@ const PvuGameBridge = (() => {
   }
 
   /**
-   * Get gameData per utente corrente.
+   * PARTE 5: rimuove il vecchio cache-first, ora preferisce LA battle scene
+   * (autoritativa durante la run) prima di scandire tutte le scene del manager.
    */
   function findGameData() {
     const game = getGame();
     if (!game) return null;
 
+    // 1. Battle scene prima — ha il gameData della run corrente
+    const bs = getBattleScene();
+    if (bs && bs.gameData) return bs.gameData;
+
+    // 2. Fallback: scan di tutte le scene registrate nel game
     if (game.scene && game.scene.scenes) {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
@@ -728,9 +804,6 @@ const PvuGameBridge = (() => {
         if (s && s.gameData) return s.gameData;
       }
     }
-
-    const bs = getBattleScene();
-    if (bs && bs.gameData) return bs.gameData;
 
     return null;
   }
@@ -751,6 +824,7 @@ const PvuGameBridge = (() => {
     getBattleScene: getBattleScene,
     getGameData: getGameData,
     findGameData: findGameData,
+    captureSceneFromPhase: captureSceneFromPhase,
     getUsername: getUsername,
     getGameUsername: getGameUsername,
     refreshUsername: refreshUsername,
@@ -773,6 +847,9 @@ const PvuPhaseObserver = (() => {
   let lastPhase = null;
   let pollTimer = null;
   let unpatchFns = [];
+  // PARTE 4: guardia anti doppio-hook — main.js richiama hookPhaseMethods()
+  // dopo aver trovato la battle scene, ma anche init() retry ogni 1s.
+  let phaseMethodsHooked = false;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -832,7 +909,10 @@ const PvuPhaseObserver = (() => {
   function hookPhaseMethods() {
     const bridge = window.__pvu.bridge;
     const helpers = window.__pvu.helpers;
-    if (!bridge || !helpers) return;
+    if (!bridge || !helpers) return false;
+
+    // PARTE 4: già hookati — evita wrapper annidati (ri-wrap = lag + stack growth)
+    if (phaseMethodsHooked) return true;
 
     const scene = bridge.getBattleScene();
     if (!scene) {
@@ -888,12 +968,20 @@ const PvuPhaseObserver = (() => {
       log('updateMoneyText hooked');
     }
 
+    phaseMethodsHooked = true;
+
     return true;
   }
 
   function handlePhaseChange(phaseObj) {
     const bridge = window.__pvu.bridge;
     if (!bridge) return;
+
+    // PARTE 5: cattura la battle scene dall'istanza phase (phaseObj.scene)
+    // appena esiste una qualsiasi phase — risolve il timing del bridge.
+    if (phaseObj && typeof phaseObj === 'object') {
+      bridge.captureSceneFromPhase(phaseObj);
+    }
 
     let phaseName = 'unknown';
     if (typeof phaseObj === 'string') {
@@ -997,6 +1085,7 @@ const PvuPhaseObserver = (() => {
     unpatchFns = [];
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+    phaseMethodsHooked = false;
     listeners.length = 0;
     pushInterceptors.length = 0;
     unshiftInterceptors.length = 0;
@@ -1018,36 +1107,37 @@ window.__pvu.phaseObserver = PvuPhaseObserver;
 
 
 // --- src/roll-controller.js ---
-// FIX BUG 1: getState() already exposed — UI now reads it on every refresh
-// FIX BUG 3: getPartyLuckValue hook + luckValue/luckLock state
+// PARTE 2: rimossi toggle morti (freeReroll, poolQuality) + hook su funzioni standalone inutili
+// PARTE 3: luck reale — hook su getModifierTypeOptions dell'istanza phase (su) + arena.randomSpecies
+// PARTE 4: niente BFS (era il lag a OGNI phase push), anti-riwrap Symbol.for('pvuPatched')
 const PvuRollController = (() => {
   const LOG_PREFIX = '[PvuRollController]';
+  const PVU_PATCHED = Symbol.for('pvuPatched');
+
+  // Tier enum verificato sul bundle (Ee @1664935):
+  // MEH=-1, COMMON=0, GREAT=1, ULTRA=2, ROGUE=3, MASTER=4, LUXURY=5
+  const TIER = { COMMON: 0, GREAT: 1, ULTRA: 2, ROGUE: 3, MASTER: 4 };
 
   // Stato toggle
   const state = {
-    freeReroll: false,
     costOverride: false,
-    poolQuality: false,
     itemCountExtra: 2,
-    // BUG 3: luck lock state
     luckValue: 5,
     luckLock: false,
     active: false,
     hooksApplied: false,
     patchedPhaseCount: 0,   // quante phase sono state patchate
     lastPatchedPhase: null, // tipo dell'ultima phase patchata
+    _arenaHooked: false,    // arena.randomSpecies hookato (una volta sola)
   };
 
-  // Hook refs per unpatch
+  // Hook refs per unpatch dei wrapper su prototype/istanze long-lived
   const unpatchFns = [];
 
   // Original functions for delegation (set when patching)
   const originals = {
     getRerollCost: null,
-    getPlayerModifierTypeOptions: null,
-    getRaritiesForRewardType: null,
     updateMoneyText: null,
-    getPartyLuckValue: null,
   };
 
   function log() {
@@ -1058,8 +1148,38 @@ const PvuRollController = (() => {
   }
 
   /**
+   * PARTE 3: pool di tier per la luck lock.
+   * luckValue 1-7 (5 = default/naturale → nessun intervento).
+   * Il risultato sostituisce this.modifierTiers della phase (su) forzando
+   * scene.lockModifierTiers=true SOLO durante la chiamata originale.
+   * @param {number} luckValue
+   * @param {number} count - numero opzioni (array per-slot, come legge Wd: n[f])
+   * @returns {number[]|null} array tier (Ee) o null se neutrale
+   */
+  function luckTierPool(luckValue, count) {
+    let pool;
+    switch (luckValue) {
+      case 1: pool = [TIER.COMMON]; break;
+      case 2: pool = [TIER.COMMON, TIER.GREAT]; break;
+      case 3: pool = [TIER.GREAT]; break;
+      case 4: pool = [TIER.GREAT, TIER.ULTRA]; break;
+      // 5 = default del gioco (JFe torna 1-7 random) → vanilla
+      case 6: pool = [TIER.ULTRA, TIER.ROGUE]; break;
+      case 7: pool = [TIER.ROGUE, TIER.MASTER]; break;
+      default: return null;
+    }
+    const n = Math.max(1, typeof count === 'number' ? count : 3);
+    const arr = new Array(n);
+    for (let i = 0; i < n; i++) {
+      arr[i] = pool[i % pool.length];
+    }
+    return arr;
+  }
+
+  /**
    * Patch una phase instance con i nostri hook.
    * Chiamata dal phase observer interceptor quando una fase viene pushata o unshiftata.
+   * PARTE 4: guard anti-riwrap con Symbol — mai doppio wrap sulla stessa istanza.
    * @param {object} phaseObj - L'istanza della fase
    */
   function patchPhase(phaseObj) {
@@ -1067,255 +1187,132 @@ const PvuRollController = (() => {
     const helpers = window.__pvu.helpers;
     if (!helpers) return;
 
+    // Anti-riwrap: l'istanza è già stata patchata
+    if (phaseObj[PVU_PATCHED]) return false;
+
+    // Le phase di interesse sono quelle con getRerollCost (SelectModifierPhase = su).
+    // NOTA: getModifierTypeOptions è un method DI QUESTA STESSA CLASSE (istanza),
+    // NON una funzione standalone — per questo il vecchio hook su sceneProto/BFS falliva.
+    if (typeof phaseObj.getRerollCost !== 'function') return false;
+    if (typeof phaseObj.getModifierTypeOptions !== 'function') return false;
+
     let patched = false;
 
-    // --- getRerollCost: è un method di SelectModifierPhase (su) ---
-    if (typeof phaseObj.getRerollCost === 'function' && !phaseObj._pvu_rerollHooked) {
+    // --- getRerollCost: costo del reroll (istanza su) ---
+    if (!phaseObj._pvu_rerollHooked) {
       originals.getRerollCost = phaseObj.getRerollCost.bind(phaseObj);
       const orig = phaseObj.getRerollCost;
       phaseObj.getRerollCost = function() {
-        const args = Array.from(arguments);
         try {
           // Cost Override: WAIVE_ROLL_FEE_OVERRIDE nativo
           if (state.costOverride) {
-            log('Cost Override attivo → ritorno {rerollCost:0, permaRerollCost:0}');
             return { rerollCost: 0, permaRerollCost: 0 };
           }
-          // Free Reroll: costo 0 una volta, poi auto-off
-          if (state.freeReroll) {
-            log('Free Reroll attivo → ritorno {rerollCost:0, permaRerollCost:0}');
-            state.freeReroll = false;
-            emitStateChange();
-            return { rerollCost: 0, permaRerollCost: 0 };
-          }
-          // Chiamata normale
-          return orig.apply(phaseObj, args);
+          return orig.apply(this, arguments);
         } catch (e) {
           warn('hook getRerollCost error:', e);
-          return orig.apply(phaseObj, args);
+          return orig.apply(this, arguments);
         }
       };
       phaseObj._pvu_rerollHooked = true;
       patched = true;
-      log('getRerollCost patched su phase instance');
     }
 
-    // --- getModifierTypeOptions / getPlayerModifierTypeOptions ---
-    const bridge = window.__pvu.bridge;
-    const scene = bridge ? bridge.getBattleScene() : null;
-    if (scene) {
-      // Hook getModifierTypeOptions sulla scene prototype (se presente)
-      if (!state._sceneOptionsHooked) {
-        const sceneProto = Object.getPrototypeOf(scene);
-        if (sceneProto) {
-          const candidates = ['getModifierTypeOptions', 'getNewModifierTypeOption', 'getPlayerModifierTypeOptions'];
-          for (let ci = 0; ci < candidates.length; ci++) {
-            const cand = candidates[ci];
-            if (typeof sceneProto[cand] === 'function' && !state['_hooked_' + cand]) {
-              originals.getPlayerModifierTypeOptions = sceneProto[cand].bind(scene);
-              const r = helpers.hookPrototype(sceneProto, cand, function(original, args) {
-                if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
-                  const origCount = args[0];
-                  args[0] = origCount + state.itemCountExtra;
-                  log('Itemcount: ' + origCount + ' → ' + args[0] + ' (extra: +' + state.itemCountExtra + ')');
-                }
-                return original.apply(this, args);
-              });
-              unpatchFns.push(r.unpatch);
-              state['_hooked_' + cand] = true;
-              state._sceneOptionsHooked = true;
-              patched = true;
-              log(cand + ' hooked su scene prototype');
-              break;
-            }
+    // --- getModifierTypeOptions: item count extra + luck pool (istanza su) ---
+    if (!phaseObj._pvu_optionsHooked) {
+      const origOptions = phaseObj.getModifierTypeOptions;
+      phaseObj.getModifierTypeOptions = function() {
+        const scene = this && this.scene ? this.scene : null;
+        let count = arguments.length > 0 && typeof arguments[0] === 'number' ? arguments[0] : undefined;
+
+        // Item count extra: aumenta il numero di opzioni nel pool
+        if (state.itemCountExtra > 0 && count !== undefined) {
+          count = count + state.itemCountExtra;
+        }
+
+        // Luck lock: forza i tier del pool forzando lockModifierTiers SOLO durante la chiamata
+        let tierPatch = null;
+        if (state.luckLock) {
+          const tiers = luckTierPool(state.luckValue, count);
+          if (tiers && scene) {
+            tierPatch = {
+              oldLock: scene.lockModifierTiers,
+              oldTiers: this.modifierTiers,
+            };
+            scene.lockModifierTiers = true;
+            this.modifierTiers = tiers;
           }
         }
 
-        // FALLBACK: se non troviamo il metodo per nome, cerchiamo per ARITY + comportamento
-        if (!state._sceneOptionsHooked && scene) {
-          const sceneProto = Object.getPrototypeOf(scene);
-          if (sceneProto) {
-            const methodNames = Object.getOwnPropertyNames(sceneProto);
-            for (let mi = 0; mi < methodNames.length; mi++) {
-              const mname = methodNames[mi];
-              if (mname === 'constructor' || mname.indexOf('_pvu') === 0) continue;
-              if (state['_arityChecked_' + mname]) continue;
-
-              try {
-                const fn = sceneProto[mname];
-                if (typeof fn !== 'function') continue;
-                if (fn.length < 1 || fn.length > 3) continue;
-
-                const src = fn.toString();
-                if (src.indexOf('RaritiesForReward') !== -1 ||
-                    src.indexOf('ModifierType') !== -1 ||
-                    src.indexOf('WeightedModifier') !== -1) {
-                  originals.getPlayerModifierTypeOptions = fn.bind(scene);
-                  const r = helpers.hookPrototype(sceneProto, mname, function(original, args) {
-                    if (state.itemCountExtra > 0 && args.length > 0 && typeof args[0] === 'number') {
-                      args[0] = args[0] + state.itemCountExtra;
-                      log('Itemcount via arity-matched ' + mname + ': +' + state.itemCountExtra);
-                    }
-                    return original.apply(this, args);
-                  });
-                  unpatchFns.push(r.unpatch);
-                  state._sceneOptionsHooked = true;
-                  patched = true;
-                  log(mname + ' hooked via arity+source-match (Itemcount)');
-                  break;
-                }
-              } catch(e) { /* skip */ }
-              state['_arityChecked_' + mname] = true;
-            }
+        try {
+          return origOptions.call(this, count);
+        } finally {
+          // Ripristino sempre (anche su errore) — nessun side effect residuo
+          if (tierPatch && scene) {
+            scene.lockModifierTiers = tierPatch.oldLock;
+            this.modifierTiers = tierPatch.oldTiers;
           }
         }
-      }
+      };
+      phaseObj._pvu_optionsHooked = true;
+      patched = true;
+      log('getModifierTypeOptions patched su phase instance (itemcount + luck pool)');
     }
 
-    // --- getRaritiesForRewardType ---
-    if (!state._raritiesHooked) {
-      const sceneProto = scene ? Object.getPrototypeOf(scene) : null;
-      const candidates2 = ['getRaritiesForRewardType', 'getRaritiesForReward'];
-      if (sceneProto) {
-        for (let ri = 0; ri < candidates2.length; ri++) {
-          const rcand = candidates2[ri];
-          if (typeof sceneProto[rcand] === 'function') {
-            originals.getRaritiesForRewardType = sceneProto[rcand].bind(scene);
-            const r = helpers.hookPrototype(sceneProto, rcand, function(original, args) {
-              if (state.poolQuality) {
-                const result = original.apply(this, args);
-                if (Array.isArray(result)) {
-                  if (result.indexOf(0) === -1 && result.indexOf(1) === -1 && result.indexOf(2) === -1) {
-                    result.unshift(2); // Legendary
-                    log('Pool quality: forzato Legendary nel pool');
-                  }
-                }
-                return result;
-              }
-              return original.apply(this, args);
-            });
-            unpatchFns.push(r.unpatch);
-            state._raritiesHooked = true;
-            patched = true;
-            log(rcand + ' hooked');
-            break;
-          }
-        }
-      }
-
-      // Fallback: cerca per arity+source
-      if (!state._raritiesHooked && sceneProto) {
-        const methodNames = Object.getOwnPropertyNames(sceneProto);
-        for (let mi = 0; mi < methodNames.length; mi++) {
-          const mname = methodNames[mi];
-          if (mname === 'constructor' || mname.indexOf('_pvu') === 0 || state['_raritiesArity_' + mname]) continue;
-          try {
-            const fn = sceneProto[mname];
-            if (typeof fn !== 'function' || fn.length > 2) continue;
-            const src = fn.toString();
-            if (src.indexOf('RARITIES') !== -1 || src.indexOf('rarity') !== -1 || src.indexOf('ROGUE') !== -1) {
-              originals.getRaritiesForRewardType = fn.bind(scene);
-              const r = helpers.hookPrototype(sceneProto, mname, function(original, args) {
-                if (state.poolQuality) {
-                  const result = original.apply(this, args);
-                  if (Array.isArray(result)) {
-                    if (result.indexOf(0) === -1 && result.indexOf(1) === -1 && result.indexOf(2) === -1) {
-                      result.unshift(2);
-                      log('Pool quality: forzato Legendary via arity-matched ' + mname);
-                    }
-                  }
-                  return result;
-                }
-                return original.apply(this, args);
-              });
-              unpatchFns.push(r.unpatch);
-              state._raritiesHooked = true;
-              patched = true;
-              log(mname + ' hooked via arity+source-match (Rarities)');
-              break;
-            }
-          } catch(e) { /* skip */ }
-          state['_raritiesArity_' + mname] = true;
-        }
-      }
-    }
-
-    // --- BUG 3: getPartyLuckValue hook ---
-    // The function JFe(a){return Le(7,1)} is a standalone module export, not a prototype method.
-    // We BFS through reachable objects from the scene to find any object with getPartyLuckValue
-    // property and replace it with our hooked version.
-    if (!state._luckHooked && scene) {
-      const luckFn = hookPartyLuckValue(scene);
-      if (luckFn) {
-        state._luckHooked = true;
-        patched = true;
-      }
+    // Hook wild luck una volta sola (istanza arena long-lived)
+    if (!state._arenaHooked) {
+      hookWildLuck();
+      patched = patched || state._arenaHooked;
     }
 
     if (patched) {
+      phaseObj[PVU_PATCHED] = true;
       state.patchedPhaseCount++;
       state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
+      log('Phase patchata:', state.lastPatchedPhase);
     }
+    return patched;
   }
 
   /**
-   * BUG 3: BFS search for getPartyLuckValue on reachable objects, replace with hooked version.
-   * The function is a standalone module export: JFe(a){return Le(7,1)} — ignores param, returns 1-7.
-   * We search for any object that has getPartyLuckValue as a function property.
-   * @param {object} root - Starting object (scene)
-   * @returns {Function|null} original function if found and hooked, null otherwise
+   * PARTE 3: wild luck — hook su scene.arena.randomSpecies.
+   * Bundle verificato: getPartyLuckValue (JFe) è una standalone fn che NON si può
+   * raggiungere via BFS; l'unico call site è:
+   *   this.arena.randomSpecies(t,n,void 0,JFe(this.party))   @21906050
+   * → il luck è il 4° argomento di randomSpecies (param i, usato come h=i*(d?.5:2)).
+   * Con luckLock ON forziamo args[3] = luckValue.
    */
-  function hookPartyLuckValue(root) {
-    const visited = new Set();
-    const queue = [root];
-    let searchCount = 0;
-    const MAX_SEARCH = 800;
-
-    while (queue.length > 0 && searchCount < MAX_SEARCH) {
-      const obj = queue.shift();
-      if (!obj || typeof obj !== 'object') continue;
-      if (visited.has(obj)) continue;
-      visited.add(obj);
-      searchCount++;
-
-      try {
-        if (typeof obj.getPartyLuckValue === 'function' && !obj._pvu_luckHooked) {
-          const origFn = obj.getPartyLuckValue;
-          originals.getPartyLuckValue = origFn;
-          obj.getPartyLuckValue = function luckHooked(a) {
-            if (state.luckLock) {
-              log('getPartyLuckValue: lock attivo, ritorno', state.luckValue, '(originale ignora param)');
-              return state.luckValue;
-            }
-            return origFn(a);
-          };
-          obj._pvu_luckHooked = true;
-          log('getPartyLuckValue trovato e hooked su oggetto (dopo', searchCount, 'oggetti visitati)');
-          return origFn;
+  function hookWildLuck() {
+    try {
+      const bridge = window.__pvu.bridge;
+      const scene = bridge.getBattleScene();
+      if (!scene || !scene.arena) return false;
+      const arena = scene.arena;
+      const orig = arena.randomSpecies;
+      if (typeof orig !== 'function') return false;
+      if (orig[PVU_PATCHED]) {
+        state._arenaHooked = true;
+        return true;
+      }
+      const wrapped = function() {
+        const args = Array.from(arguments);
+        if (state.luckLock && args.length >= 4 && typeof args[3] === 'number') {
+          args[3] = state.luckValue;
         }
-      } catch(e) { /* skip */ }
-
-      try {
-        // Enqueue prototype
-        const proto = Object.getPrototypeOf(obj);
-        if (proto && proto !== Object.prototype && !visited.has(proto)) {
-          queue.push(proto);
-        }
-        // Enqueue own enumerable values
-        const keys = Object.keys(obj);
-        for (let i = 0; i < keys.length && searchCount < MAX_SEARCH; i++) {
-          try {
-            const val = obj[keys[i]];
-            if (val && typeof val === 'object' && !visited.has(val)) {
-              queue.push(val);
-            }
-          } catch(e) { /* skip */ }
-        }
-      } catch(e) { /* skip */ }
+        return orig.apply(this, args);
+      };
+      wrapped[PVU_PATCHED] = true;
+      arena.randomSpecies = wrapped;
+      state._arenaHooked = true;
+      unpatchFns.push(function() {
+        if (arena.randomSpecies === wrapped) arena.randomSpecies = orig;
+      });
+      log('arena.randomSpecies hooked (wild luck overridable)');
+      return true;
+    } catch (e) {
+      warn('hookWildLuck fallito:', e);
+      return false;
     }
-
-    warn('getPartyLuckValue non trovato dopo', searchCount, 'oggetti visitati');
-    return null;
   }
 
   /**
@@ -1401,7 +1398,7 @@ const PvuRollController = (() => {
         const phases = s.scene._phases;
         for (let i = 0; i < phases.length; i++) {
           const p = phases[i];
-          if (p && typeof p.getRerollCost === 'function' && !p._pvu_rerollHooked) {
+          if (p && typeof p.getRerollCost === 'function' && !p[PVU_PATCHED]) {
             patchPhase(p);
             checkHooksApplied();
           }
@@ -1418,26 +1415,12 @@ const PvuRollController = (() => {
 
   // === Toggle API ===
 
-  function toggleFreeReroll() {
-    state.freeReroll = true;
-    log('Free Reroll: ON (prossimo reroll sarà gratuito)');
-    emitStateChange();
-    return true;
-  }
-
   function toggleCostOverride(val) {
     state.costOverride = val !== undefined ? val : !state.costOverride;
     setWaiveRollFeeOverride(state.costOverride);
     log('Cost Override:', state.costOverride ? 'ON' : 'OFF');
     emitStateChange();
     return state.costOverride;
-  }
-
-  function togglePoolQuality(val) {
-    state.poolQuality = val !== undefined ? val : !state.poolQuality;
-    log('Pool Quality:', state.poolQuality ? 'ON' : 'OFF');
-    emitStateChange();
-    return state.poolQuality;
   }
 
   function setItemCountExtra(val) {
@@ -1447,7 +1430,7 @@ const PvuRollController = (() => {
     return state.itemCountExtra;
   }
 
-  // === BUG 3: Luck Lock API ===
+  // === Luck API ===
 
   function setLuckValue(val) {
     state.luckValue = Math.max(1, Math.min(7, parseInt(val, 10) || 5));
@@ -1465,9 +1448,7 @@ const PvuRollController = (() => {
 
   function getState() {
     return {
-      freeReroll: state.freeReroll,
       costOverride: state.costOverride,
-      poolQuality: state.poolQuality,
       itemCountExtra: state.itemCountExtra,
       luckValue: state.luckValue,
       luckLock: state.luckLock,
@@ -1484,14 +1465,11 @@ const PvuRollController = (() => {
     }
     unpatchFns.length = 0;
     originals.getRerollCost = null;
-    originals.getPlayerModifierTypeOptions = null;
-    originals.getRaritiesForRewardType = null;
     originals.updateMoneyText = null;
-    originals.getPartyLuckValue = null;
     state.hooksApplied = false;
     state.active = false;
     state.patchedPhaseCount = 0;
-    state._luckHooked = false;
+    state._arenaHooked = false;
     log('destroy');
   }
 
@@ -1500,9 +1478,7 @@ const PvuRollController = (() => {
     destroy: destroy,
     applyHooks: applyHooks,
     getState: getState,
-    toggleFreeReroll: toggleFreeReroll,
     toggleCostOverride: toggleCostOverride,
-    togglePoolQuality: togglePoolQuality,
     setItemCountExtra: setItemCountExtra,
     setLuckValue: setLuckValue,
     toggleLuckLock: toggleLuckLock,
@@ -1511,7 +1487,6 @@ const PvuRollController = (() => {
 
 window.__pvu = window.__pvu || {};
 window.__pvu.rollController = PvuRollController;
-
 
 // --- src/money-override.js ---
 const PvuMoneyOverride = (() => {
@@ -1663,20 +1638,56 @@ const PvuSkillTreeEditor = (() => {
     return gd.activeSkillTree || null;
   }
 
+  // PARTE 5: log diagnostico throttlato — logga SOLO quando cambia (champId|source).
+  // skill-screen chiama refreshUI ogni 3s → senza throttle spammeremmo la console.
+  let lastChampLogKey = null;
+
   /**
    * Resolve the active champion ID using the game's own fallback chain:
    * selectedChampionId → activeSkillTree.championId → gender-based default
-   * This matches bundle: resolveActiveChampionId()
+   * This matches bundle: resolveActiveChampionId() @15090868
+   *
+   * PARTE 5: label della sorgente + log diagnostico throttlato.
+   * Il null qui NON è un risultato legittimo se gameData esiste (la catena cade
+   * sempre sul gender-default) → un eventuale "champion non trovato" in UI è
+   * un problema di timing del bridge (gameData non ancora visibile), non di logica.
    */
   function resolveActiveChampionId() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return null;
-    const champId = gd.selectedChampionId || (gd.activeSkillTree && gd.activeSkillTree.championId);
-    if (champId === 'apollo_diana') {
-      return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+
+    let champId = null;
+    let source = 'none';
+
+    if (gd.selectedChampionId) {
+      champId = gd.selectedChampionId;
+      source = 'selectedChampionId';
+    } else if (gd.activeSkillTree && gd.activeSkillTree.championId) {
+      champId = gd.activeSkillTree.championId;
+      source = 'activeSkillTree.championId';
     }
-    if (champId) return champId;
-    return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+
+    if (champId === 'apollo_diana') {
+      champId = gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+      source = source + '→apollo_diana:gender';
+    }
+    if (champId) {
+      const key = champId + '|' + source;
+      if (key !== lastChampLogKey) {
+        lastChampLogKey = key;
+        log('Champion risolto:', champId, '(source:', source + ')');
+      }
+      return champId;
+    }
+
+    // Caduta finale: default per gender (identico al gioco)
+    const fallback = gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+    const key = fallback + '|gender-default';
+    if (key !== lastChampLogKey) {
+      lastChampLogKey = key;
+      log('Champion risolto (gender default):', fallback, '(source: gender-default)');
+    }
+    return fallback;
   }
 
   /**
@@ -2346,8 +2357,8 @@ window.__pvu.floatingBtn = PvuFloatingBtn;
 
 
 // --- src/ui/roll-screen.js ---
-// FIX BUG 1: toggle switches now sync from controller state on every refresh
-// FIX BUG 3: added Luck Lock section with value slider + lock toggle
+// PARTE 2: rimossi toggle morti (freeReroll, poolQuality)
+// Luck Lock: influisce SOLO sulle offerte del roll (getModifierTypeOptions su), non su party luck/battle
 const PvuRollScreen = (() => {
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
@@ -2372,21 +2383,6 @@ const PvuRollScreen = (() => {
     rerollTitle.className = 'pvu-section-title';
     rerollTitle.textContent = 'ROLL CONTROLLER';
     rerollSection.appendChild(rerollTitle);
-
-    // Free Reroll (oneshot)
-    const freeRerollResult = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
-      window.__pvu.rollController.toggleFreeReroll();
-      refreshUI();
-    });
-    rerollSection.appendChild(freeRerollResult.row);
-    toggleRefs.freeReroll = freeRerollResult.switchEl;
-
-    // Pool Quality
-    const poolQualityResult = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
-      window.__pvu.rollController.togglePoolQuality(val);
-    });
-    rerollSection.appendChild(poolQualityResult.row);
-    toggleRefs.poolQuality = poolQualityResult.switchEl;
 
     // Cost Override
     const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
@@ -2434,7 +2430,7 @@ const PvuRollScreen = (() => {
     luckSection.appendChild(luckSliderRow);
 
     // Luck Lock toggle
-    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per tutti i reroll', false, function(val) {
+    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per le offerte del roll', false, function(val) {
       window.__pvu.rollController.toggleLuckLock(val);
     });
     luckSection.appendChild(luckLockResult.row);
@@ -2443,7 +2439,7 @@ const PvuRollScreen = (() => {
     // Luck info
     const luckInfo = document.createElement('div');
     luckInfo.className = 'pvu-status';
-    luckInfo.textContent = '1 = minimo, 5 = default, 7 = massimo. Il lock sovrascrive il luck del party.';
+    luckInfo.textContent = '1-7 (5 = default). Influenza la qualità delle offerte del roll; non tocca il party luck delle battle e non raggiunge shop/ball-lock.';
     luckSection.appendChild(luckInfo);
 
     containerEl.appendChild(luckSection);
@@ -2485,7 +2481,7 @@ const PvuRollScreen = (() => {
 
     const itemInfo = document.createElement('div');
     itemInfo.className = 'pvu-status';
-    itemInfo.textContent = '3 base + bonus → es: +2 = 5 opzioni (default)';
+    itemInfo.textContent = 'Aggiunge opzioni alle offerte del roll (es: +2 = 5 opzioni con le 3 base).';
     itemSection.appendChild(itemInfo);
 
     containerEl.appendChild(itemSection);
@@ -2565,14 +2561,8 @@ const PvuRollScreen = (() => {
     const state = window.__pvu.rollController.getState();
 
     // Sync toggle switches from controller state
-    if (toggleRefs.freeReroll) {
-      setSwitchState(toggleRefs.freeReroll, state.freeReroll);
-    }
     if (toggleRefs.costOverride) {
       setSwitchState(toggleRefs.costOverride, state.costOverride);
-    }
-    if (toggleRefs.poolQuality) {
-      setSwitchState(toggleRefs.poolQuality, state.poolQuality);
     }
     if (toggleRefs.luckLock) {
       setSwitchState(toggleRefs.luckLock, state.luckLock);
@@ -2582,11 +2572,10 @@ const PvuRollScreen = (() => {
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
       const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
-      const freeRerollStatus = state.freeReroll ? ' | Free Reroll: ON' : '';
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
-      const poolStatus = state.poolQuality ? ' | Pool Quality: ON' : '';
       const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
-      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus + luckStatus;
+      const patchInfo = state.patchedPhaseCount > 0 ? ' | Phase patchate: ' + state.patchedPhaseCount : '';
+      statusEl.textContent = hookStatus + costStatus + luckStatus + patchInfo;
       statusEl.className = 'pvu-status ' + (state.hooksApplied ? 'ok' : 'warn');
     }
 
@@ -2901,6 +2890,9 @@ const PvuPanel = (() => {
   let panelEl = null;
   let isOpen = false;
   let activeTab = 'roll';
+  // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
+  // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
+  let moneyTimer = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -3109,7 +3101,9 @@ const PvuPanel = (() => {
 
     // Aggiorna stato
     updateMoneyStatus(statusEl, input);
-    setInterval(function() { updateMoneyStatus(statusEl, input); }, 2000);
+    // PARTE 4: nessun leak — clear del timer precedente prima di crearne uno nuovo
+    if (moneyTimer) clearInterval(moneyTimer);
+    moneyTimer = setInterval(function() { updateMoneyStatus(statusEl, input); }, 2000);
   }
 
   function updateMoneyStatus(statusEl, input) {
@@ -3141,6 +3135,8 @@ const PvuPanel = (() => {
   }
 
   function destroy() {
+    if (moneyTimer) clearInterval(moneyTimer);
+    moneyTimer = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;

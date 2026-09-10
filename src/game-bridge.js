@@ -157,8 +157,8 @@ const PvuGameBridge = (() => {
     return getFromCanvasPool();
   }
 
-  /**
-   * Get gameData dal game instance.
+/**
+   * Get game data dal game instance.
    */
   function getGameData() {
     const scene = getBattleScene();
@@ -171,6 +171,29 @@ const PvuGameBridge = (() => {
       }
     }
     return null;
+  }
+
+  /**
+   * PARTE 5: cattura la battle scene da un'istanza di phase (phaseObj.scene).
+   * Chiamato dal phase observer su ogni push/unshift — garantisce che la scene
+   * sia disponibile appena esiste QUALSIASI phase (title incluso).
+   * @param {object} phaseObj - L'istanza della fase
+   */
+  function captureSceneFromPhase(phaseObj) {
+    try {
+      if (STATE.battleScene) return STATE.battleScene;
+      if (phaseObj && typeof phaseObj === 'object' && phaseObj.scene) {
+        const candidate = phaseObj.scene;
+        // La scene della phase è la battle scene (ha moveUpgradesEnabledForRun ecc.)
+        if (candidate && candidate.game) {
+          STATE.battleScene = candidate;
+          window.__pvu_battleScene = candidate;
+          log('Battle scene catturato da phase instance (' +
+              (phaseObj.constructor ? phaseObj.constructor.name : '?') + ')');
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return STATE.battleScene;
   }
 
   /**
@@ -247,12 +270,18 @@ const PvuGameBridge = (() => {
   }
 
   /**
-   * Get gameData per utente corrente.
+   * PARTE 5: rimuove il vecchio cache-first, ora preferisce LA battle scene
+   * (autoritativa durante la run) prima di scandire tutte le scene del manager.
    */
   function findGameData() {
     const game = getGame();
     if (!game) return null;
 
+    // 1. Battle scene prima — ha il gameData della run corrente
+    const bs = getBattleScene();
+    if (bs && bs.gameData) return bs.gameData;
+
+    // 2. Fallback: scan di tutte le scene registrate nel game
     if (game.scene && game.scene.scenes) {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
@@ -260,9 +289,6 @@ const PvuGameBridge = (() => {
         if (s && s.gameData) return s.gameData;
       }
     }
-
-    const bs = getBattleScene();
-    if (bs && bs.gameData) return bs.gameData;
 
     return null;
   }
@@ -283,6 +309,7 @@ const PvuGameBridge = (() => {
     getBattleScene: getBattleScene,
     getGameData: getGameData,
     findGameData: findGameData,
+    captureSceneFromPhase: captureSceneFromPhase,
     getUsername: getUsername,
     getGameUsername: getGameUsername,
     refreshUsername: refreshUsername,

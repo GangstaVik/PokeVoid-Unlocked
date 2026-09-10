@@ -1,6 +1,6 @@
 // src/ui/roll-screen.js — UI Roll Controller (tab Roll)
-// FIX BUG 1: toggle switches now sync from controller state on every refresh
-// FIX BUG 3: added Luck Lock section with value slider + lock toggle
+// PARTE 2: rimossi toggle morti (freeReroll, poolQuality)
+// Luck Lock: influisce SOLO sulle offerte del roll (getModifierTypeOptions su), non su party luck/battle
 const PvuRollScreen = (() => {
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
@@ -25,21 +25,6 @@ const PvuRollScreen = (() => {
     rerollTitle.className = 'pvu-section-title';
     rerollTitle.textContent = 'ROLL CONTROLLER';
     rerollSection.appendChild(rerollTitle);
-
-    // Free Reroll (oneshot)
-    const freeRerollResult = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
-      window.__pvu.rollController.toggleFreeReroll();
-      refreshUI();
-    });
-    rerollSection.appendChild(freeRerollResult.row);
-    toggleRefs.freeReroll = freeRerollResult.switchEl;
-
-    // Pool Quality
-    const poolQualityResult = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
-      window.__pvu.rollController.togglePoolQuality(val);
-    });
-    rerollSection.appendChild(poolQualityResult.row);
-    toggleRefs.poolQuality = poolQualityResult.switchEl;
 
     // Cost Override
     const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
@@ -87,7 +72,7 @@ const PvuRollScreen = (() => {
     luckSection.appendChild(luckSliderRow);
 
     // Luck Lock toggle
-    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per tutti i reroll', false, function(val) {
+    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per le offerte del roll', false, function(val) {
       window.__pvu.rollController.toggleLuckLock(val);
     });
     luckSection.appendChild(luckLockResult.row);
@@ -96,7 +81,7 @@ const PvuRollScreen = (() => {
     // Luck info
     const luckInfo = document.createElement('div');
     luckInfo.className = 'pvu-status';
-    luckInfo.textContent = '1 = minimo, 5 = default, 7 = massimo. Il lock sovrascrive il luck del party.';
+    luckInfo.textContent = '1-7 (5 = default). Influenza la qualità delle offerte del roll; non tocca il party luck delle battle e non raggiunge shop/ball-lock.';
     luckSection.appendChild(luckInfo);
 
     containerEl.appendChild(luckSection);
@@ -138,7 +123,7 @@ const PvuRollScreen = (() => {
 
     const itemInfo = document.createElement('div');
     itemInfo.className = 'pvu-status';
-    itemInfo.textContent = '3 base + bonus → es: +2 = 5 opzioni (default)';
+    itemInfo.textContent = 'Aggiunge opzioni alle offerte del roll (es: +2 = 5 opzioni con le 3 base).';
     itemSection.appendChild(itemInfo);
 
     containerEl.appendChild(itemSection);
@@ -218,14 +203,8 @@ const PvuRollScreen = (() => {
     const state = window.__pvu.rollController.getState();
 
     // Sync toggle switches from controller state
-    if (toggleRefs.freeReroll) {
-      setSwitchState(toggleRefs.freeReroll, state.freeReroll);
-    }
     if (toggleRefs.costOverride) {
       setSwitchState(toggleRefs.costOverride, state.costOverride);
-    }
-    if (toggleRefs.poolQuality) {
-      setSwitchState(toggleRefs.poolQuality, state.poolQuality);
     }
     if (toggleRefs.luckLock) {
       setSwitchState(toggleRefs.luckLock, state.luckLock);
@@ -235,11 +214,10 @@ const PvuRollScreen = (() => {
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
       const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
-      const freeRerollStatus = state.freeReroll ? ' | Free Reroll: ON' : '';
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
-      const poolStatus = state.poolQuality ? ' | Pool Quality: ON' : '';
       const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
-      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus + luckStatus;
+      const patchInfo = state.patchedPhaseCount > 0 ? ' | Phase patchate: ' + state.patchedPhaseCount : '';
+      statusEl.textContent = hookStatus + costStatus + luckStatus + patchInfo;
       statusEl.className = 'pvu-status ' + (state.hooksApplied ? 'ok' : 'warn');
     }
 

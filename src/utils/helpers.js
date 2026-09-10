@@ -91,6 +91,10 @@ const PvuHelpers = (() => {
       console.warn(LOG_PREFIX, 'hookPrototype: target not found', methodName);
       return { unpatch: function() {} };
     }
+    // PARTE 4: anti-riwrap — se già wrappato da noi, non rimpiazzare di nuovo
+    if (Proto[methodName][Symbol.for('pvuPatched')]) {
+      return { unpatch: function() {} };
+    }
     const original = Proto[methodName];
     const wrapped = function() {
       const args = Array.from(arguments);
@@ -101,6 +105,7 @@ const PvuHelpers = (() => {
         return original.apply(this, arguments);
       }
     };
+    wrapped[Symbol.for('pvuPatched')] = true;
     Proto[methodName] = wrapped;
     return {
       unpatch: function() {

@@ -29,20 +29,56 @@ const PvuSkillTreeEditor = (() => {
     return gd.activeSkillTree || null;
   }
 
+  // PARTE 5: log diagnostico throttlato — logga SOLO quando cambia (champId|source).
+  // skill-screen chiama refreshUI ogni 3s → senza throttle spammeremmo la console.
+  let lastChampLogKey = null;
+
   /**
    * Resolve the active champion ID using the game's own fallback chain:
    * selectedChampionId → activeSkillTree.championId → gender-based default
-   * This matches bundle: resolveActiveChampionId()
+   * This matches bundle: resolveActiveChampionId() @15090868
+   *
+   * PARTE 5: label della sorgente + log diagnostico throttlato.
+   * Il null qui NON è un risultato legittimo se gameData esiste (la catena cade
+   * sempre sul gender-default) → un eventuale "champion non trovato" in UI è
+   * un problema di timing del bridge (gameData non ancora visibile), non di logica.
    */
   function resolveActiveChampionId() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return null;
-    const champId = gd.selectedChampionId || (gd.activeSkillTree && gd.activeSkillTree.championId);
-    if (champId === 'apollo_diana') {
-      return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+
+    let champId = null;
+    let source = 'none';
+
+    if (gd.selectedChampionId) {
+      champId = gd.selectedChampionId;
+      source = 'selectedChampionId';
+    } else if (gd.activeSkillTree && gd.activeSkillTree.championId) {
+      champId = gd.activeSkillTree.championId;
+      source = 'activeSkillTree.championId';
     }
-    if (champId) return champId;
-    return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+
+    if (champId === 'apollo_diana') {
+      champId = gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+      source = source + '→apollo_diana:gender';
+    }
+    if (champId) {
+      const key = champId + '|' + source;
+      if (key !== lastChampLogKey) {
+        lastChampLogKey = key;
+        log('Champion risolto:', champId, '(source:', source + ')');
+      }
+      return champId;
+    }
+
+    // Caduta finale: default per gender (identico al gioco)
+    const fallback = gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+    const key = fallback + '|gender-default';
+    if (key !== lastChampLogKey) {
+      lastChampLogKey = key;
+      log('Champion risolto (gender default):', fallback, '(source: gender-default)');
+    }
+    return fallback;
   }
 
   /**
