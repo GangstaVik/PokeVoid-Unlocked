@@ -1,7 +1,6 @@
-// src/roll-controller.js — 3 toggle onesti + itemcount slider
-// FIX BUG 2: getRerollCost is on SelectModifierPhase (su), NOT on the scene.
-// Strategy: intercept phases as they enter the scene via pushPhase/unshiftPhase,
-// then patch the phase instance directly.
+// src/roll-controller.js — 3 toggle onesti + itemcount slider + luck lock
+// FIX BUG 1: getState() already exposed — UI now reads it on every refresh
+// FIX BUG 3: getPartyLuckValue hook + luckValue/luckLock state
 const PvuRollController = (() => {
   const LOG_PREFIX = '[PvuRollController]';
 
@@ -11,6 +10,9 @@ const PvuRollController = (() => {
     costOverride: false,
     poolQuality: false,
     itemCountExtra: 2,
+    // BUG 3: luck lock state
+    luckValue: 5,
+    luckLock: false,
     active: false,
     hooksApplied: false,
     patchedPhaseCount: 0,   // quante phase sono state patchate
@@ -26,6 +28,7 @@ const PvuRollController = (() => {
     getPlayerModifierTypeOptions: null,
     getRaritiesForRewardType: null,
     updateMoneyText: null,
+    getPartyLuckValue: null,
   };
 
   function log() {
@@ -37,7 +40,7 @@ const PvuRollController = (() => {
 
   /**
    * Patch una phase instance con i nostri hook.
-   * Chiamata dal phase observer interceptor quando una fase viene pushata/unshiftata.
+   * Chiamata dal phase observer interceptor quando una fase viene pushata o unshiftata.
    * @param {object} phaseObj - L'istanza della fase
    */
   function patchPhase(phaseObj) {
@@ -79,11 +82,6 @@ const PvuRollController = (() => {
     }
 
     // --- getModifierTypeOptions / getPlayerModifierTypeOptions ---
-    // Nel bundle: getPlayerModifierTypeOptions è una function Wd chiamata come Wd.call(scene, count)
-    // La scene ha un metodo che delega. Cerchiamo un metodo sul scene che chiama Wd.
-    // Alternativa: hook direttamente sulla battle scene il metodo che genera le opzioni.
-    // Cerchiamo sulla scene prototype (dalla battle scene) il metodo che può essere getModifierTypeOptions.
-
     const bridge = window.__pvu.bridge;
     const scene = bridge ? bridge.getBattleScene() : null;
     if (scene) {
@@ -91,9 +89,6 @@ const PvuRollController = (() => {
       if (!state._sceneOptionsHooked) {
         const sceneProto = Object.getPrototypeOf(scene);
         if (sceneProto) {
-          // Cerca il metodo che genera le opzioni del modifier
-          // Nel bundle: la scene chiama Wd(getModifierTypeOptions) che è il metodo che produce le opzioni
-          // Il metodo è sulla SelectModifierPhase.prototype / scene.prototype
           const candidates = ['getModifierTypeOptions', 'getNewModifierTypeOption', 'getPlayerModifierTypeOptions'];
           for (let ci = 0; ci < candidates.length; ci++) {
             const cand = candidates[ci];
@@ -119,8 +114,6 @@ const PvuRollController = (() => {
 
         // FALLBACK: se non troviamo il metodo per nome, cerchiamo per ARITY + comportamento
         if (!state._sceneOptionsHooked && scene) {
-          // Cerca un metodo che: accetta 1 arg numerico e ritorna array di oggetti
-          // Questo è il pattern di getModifierTypeOptions / getPlayerModifierTypeOptions
           const sceneProto = Object.getPrototypeOf(scene);
           if (sceneProto) {
             const methodNames = Object.getOwnPropertyNames(sceneProto);
@@ -132,12 +125,9 @@ const PvuRollController = (() => {
               try {
                 const fn = sceneProto[mname];
                 if (typeof fn !== 'function') continue;
-                // Test arity: should accept at least 1 parameter
                 if (fn.length < 1 || fn.length > 3) continue;
 
-                // Check if return looks like it could be options (heuristic via toString)
                 const src = fn.toString();
-                // getModifierTypeOptions usually contains "WeightedModifierType" or "getRaritiesForRewardType"
                 if (src.indexOf('RaritiesForReward') !== -1 ||
                     src.indexOf('ModifierType') !== -1 ||
                     src.indexOf('WeightedModifier') !== -1) {
@@ -164,8 +154,6 @@ const PvuRollController = (() => {
     }
 
     // --- getRaritiesForRewardType ---
-    // È una funzione standalone bne, chiamata dal context del gioco.
-    // La troviamo cercando tra i prototype methods della scene o della phase.
     if (!state._raritiesHooked) {
       const sceneProto = scene ? Object.getPrototypeOf(scene) : null;
       const candidates2 = ['getRaritiesForRewardType', 'getRaritiesForReward'];
@@ -233,10 +221,82 @@ const PvuRollController = (() => {
       }
     }
 
+    // --- BUG 3: getPartyLuckValue hook ---
+    // The function JFe(a){return Le(7,1)} is a standalone module export, not a prototype method.
+    // We BFS through reachable objects from the scene to find any object with getPartyLuckValue
+    // property and replace it with our hooked version.
+    if (!state._luckHooked && scene) {
+      const luckFn = hookPartyLuckValue(scene);
+      if (luckFn) {
+        state._luckHooked = true;
+        patched = true;
+      }
+    }
+
     if (patched) {
       state.patchedPhaseCount++;
       state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
     }
+  }
+
+  /**
+   * BUG 3: BFS search for getPartyLuckValue on reachable objects, replace with hooked version.
+   * The function is a standalone module export: JFe(a){return Le(7,1)} — ignores param, returns 1-7.
+   * We search for any object that has getPartyLuckValue as a function property.
+   * @param {object} root - Starting object (scene)
+   * @returns {Function|null} original function if found and hooked, null otherwise
+   */
+  function hookPartyLuckValue(root) {
+    const visited = new Set();
+    const queue = [root];
+    let searchCount = 0;
+    const MAX_SEARCH = 800;
+
+    while (queue.length > 0 && searchCount < MAX_SEARCH) {
+      const obj = queue.shift();
+      if (!obj || typeof obj !== 'object') continue;
+      if (visited.has(obj)) continue;
+      visited.add(obj);
+      searchCount++;
+
+      try {
+        if (typeof obj.getPartyLuckValue === 'function' && !obj._pvu_luckHooked) {
+          const origFn = obj.getPartyLuckValue;
+          originals.getPartyLuckValue = origFn;
+          obj.getPartyLuckValue = function luckHooked(a) {
+            if (state.luckLock) {
+              log('getPartyLuckValue: lock attivo, ritorno', state.luckValue, '(originale ignora param)');
+              return state.luckValue;
+            }
+            return origFn(a);
+          };
+          obj._pvu_luckHooked = true;
+          log('getPartyLuckValue trovato e hooked su oggetto (dopo', searchCount, 'oggetti visitati)');
+          return origFn;
+        }
+      } catch(e) { /* skip */ }
+
+      try {
+        // Enqueue prototype
+        const proto = Object.getPrototypeOf(obj);
+        if (proto && proto !== Object.prototype && !visited.has(proto)) {
+          queue.push(proto);
+        }
+        // Enqueue own enumerable values
+        const keys = Object.keys(obj);
+        for (let i = 0; i < keys.length && searchCount < MAX_SEARCH; i++) {
+          try {
+            const val = obj[keys[i]];
+            if (val && typeof val === 'object' && !visited.has(val)) {
+              queue.push(val);
+            }
+          } catch(e) { /* skip */ }
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    warn('getPartyLuckValue non trovato dopo', searchCount, 'oggetti visitati');
+    return null;
   }
 
   /**
@@ -264,7 +324,6 @@ const PvuRollController = (() => {
       return;
     }
 
-    // Patch phase instances quando vengono pushate o unshiftate
     observer.onPhasePush(function(phaseObj) {
       patchPhase(phaseObj);
       checkHooksApplied();
@@ -283,7 +342,6 @@ const PvuRollController = (() => {
   function checkHooksApplied() {
     if (state.hooksApplied) return;
 
-    // Consideriamo "applied" se almeno getRerollCost è stato patchato
     if (originals.getRerollCost) {
       state.hooksApplied = true;
       state.active = true;
@@ -298,11 +356,7 @@ const PvuRollController = (() => {
   function applyHooks() {
     if (state.hooksApplied) return true;
 
-    // Registra interceptor per le fasi future
     registerPhaseInterceptors();
-
-    // Prova anche a patchare la phase corrente se esiste già nella coda
-    // (nel caso il bottone roll venga premuto prima che il nostro hook catturi la fase)
     tryPatchCurrentPhase();
 
     return state.hooksApplied;
@@ -318,7 +372,6 @@ const PvuRollController = (() => {
       const game = bridge.getGame();
       if (!game || !game.scene) return;
 
-      // Cerca phases attive nella coda della scena
       const sceneManager = game.scene;
       const scenes = sceneManager.scenes;
       if (!scenes) return;
@@ -375,12 +428,30 @@ const PvuRollController = (() => {
     return state.itemCountExtra;
   }
 
+  // === BUG 3: Luck Lock API ===
+
+  function setLuckValue(val) {
+    state.luckValue = Math.max(1, Math.min(7, parseInt(val, 10) || 5));
+    log('Luck value:', state.luckValue);
+    emitStateChange();
+    return state.luckValue;
+  }
+
+  function toggleLuckLock(val) {
+    state.luckLock = val !== undefined ? val : !state.luckLock;
+    log('Luck Lock:', state.luckLock ? 'ON (luck=' + state.luckValue + ')' : 'OFF');
+    emitStateChange();
+    return state.luckLock;
+  }
+
   function getState() {
     return {
       freeReroll: state.freeReroll,
       costOverride: state.costOverride,
       poolQuality: state.poolQuality,
       itemCountExtra: state.itemCountExtra,
+      luckValue: state.luckValue,
+      luckLock: state.luckLock,
       active: state.active,
       hooksApplied: state.hooksApplied,
       patchedPhaseCount: state.patchedPhaseCount,
@@ -397,9 +468,11 @@ const PvuRollController = (() => {
     originals.getPlayerModifierTypeOptions = null;
     originals.getRaritiesForRewardType = null;
     originals.updateMoneyText = null;
+    originals.getPartyLuckValue = null;
     state.hooksApplied = false;
     state.active = false;
     state.patchedPhaseCount = 0;
+    state._luckHooked = false;
     log('destroy');
   }
 
@@ -412,6 +485,8 @@ const PvuRollController = (() => {
     toggleCostOverride: toggleCostOverride,
     togglePoolQuality: togglePoolQuality,
     setItemCountExtra: setItemCountExtra,
+    setLuckValue: setLuckValue,
+    toggleLuckLock: toggleLuckLock,
   };
 })();
 

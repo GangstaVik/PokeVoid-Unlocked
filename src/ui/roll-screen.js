@@ -1,8 +1,13 @@
 // src/ui/roll-screen.js — UI Roll Controller (tab Roll)
+// FIX BUG 1: toggle switches now sync from controller state on every refresh
+// FIX BUG 3: added Luck Lock section with value slider + lock toggle
 const PvuRollScreen = (() => {
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
   let refreshTimer = null;
+
+  // Track toggle switch DOM elements by state key for sync
+  const toggleRefs = {};
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -22,25 +27,79 @@ const PvuRollScreen = (() => {
     rerollSection.appendChild(rerollTitle);
 
     // Free Reroll (oneshot)
-    const freeRerollRow = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
+    const freeRerollResult = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
       window.__pvu.rollController.toggleFreeReroll();
       refreshUI();
     });
-    rerollSection.appendChild(freeRerollRow);
+    rerollSection.appendChild(freeRerollResult.row);
+    toggleRefs.freeReroll = freeRerollResult.switchEl;
 
     // Pool Quality
-    const poolQualityRow = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
+    const poolQualityResult = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
       window.__pvu.rollController.togglePoolQuality(val);
     });
-    rerollSection.appendChild(poolQualityRow);
+    rerollSection.appendChild(poolQualityResult.row);
+    toggleRefs.poolQuality = poolQualityResult.switchEl;
 
     // Cost Override
-    const costOverrideRow = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
+    const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
       window.__pvu.rollController.toggleCostOverride(val);
     });
-    rerollSection.appendChild(costOverrideRow);
+    rerollSection.appendChild(costOverrideResult.row);
+    toggleRefs.costOverride = costOverrideResult.switchEl;
 
     containerEl.appendChild(rerollSection);
+
+    // === BUG 3: Luck Lock Section ===
+    const luckSection = document.createElement('div');
+    luckSection.className = 'pvu-section';
+
+    const luckTitle = document.createElement('div');
+    luckTitle.className = 'pvu-section-title';
+    luckTitle.textContent = 'LUCK LOCK';
+    luckSection.appendChild(luckTitle);
+
+    // Luck slider
+    const luckSliderRow = document.createElement('div');
+    luckSliderRow.className = 'pvu-slider-row';
+
+    const luckSlider = document.createElement('input');
+    luckSlider.type = 'range';
+    luckSlider.className = 'pvu-slider';
+    luckSlider.min = '1';
+    luckSlider.max = '7';
+    luckSlider.value = '5';
+    luckSlider.id = 'pvu-luck-slider';
+
+    const luckValLabel = document.createElement('span');
+    luckValLabel.className = 'pvu-slider-val';
+    luckValLabel.textContent = '5';
+    luckValLabel.id = 'pvu-luck-val';
+
+    luckSlider.addEventListener('input', function() {
+      const v = parseInt(luckSlider.value, 10);
+      luckValLabel.textContent = v;
+      window.__pvu.rollController.setLuckValue(v);
+    });
+
+    luckSliderRow.appendChild(luckSlider);
+    luckSliderRow.appendChild(luckValLabel);
+    luckSection.appendChild(luckSliderRow);
+
+    // Luck Lock toggle
+    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per tutti i reroll', false, function(val) {
+      window.__pvu.rollController.toggleLuckLock(val);
+    });
+    luckSection.appendChild(luckLockResult.row);
+    toggleRefs.luckLock = luckLockResult.switchEl;
+
+    // Luck info
+    const luckInfo = document.createElement('div');
+    luckInfo.className = 'pvu-status';
+    luckInfo.textContent = '1 = minimo, 5 = default, 7 = massimo. Il lock sovrascrive il luck del party.';
+    luckSection.appendChild(luckInfo);
+
+    containerEl.appendChild(luckSection);
 
     // === Item Count Section ===
     const itemSection = document.createElement('div');
@@ -114,6 +173,10 @@ const PvuRollScreen = (() => {
     refreshUI();
   }
 
+  /**
+   * Create a toggle row. Returns { row, switchEl } so caller can reference the switch DOM.
+   * BUG 1 FIX: caller now receives switchEl for sync in refreshUI.
+   */
   function createToggle(label, description, initial, onChange) {
     const row = document.createElement('div');
     row.className = 'pvu-toggle';
@@ -143,35 +206,81 @@ const PvuRollScreen = (() => {
 
     row.appendChild(left);
     row.appendChild(switchEl);
-    row._pvuSwitch = switchEl;
-    return row;
+    return { row: row, switchEl: switchEl };
   }
 
+  /**
+   * BUG 1 FIX: sync all toggle switches and sliders from controller state.
+   * Called on every refresh interval and after user actions.
+   */
   function refreshUI() {
     if (!containerEl) return;
     const state = window.__pvu.rollController.getState();
+
+    // Sync toggle switches from controller state
+    if (toggleRefs.freeReroll) {
+      setSwitchState(toggleRefs.freeReroll, state.freeReroll);
+    }
+    if (toggleRefs.costOverride) {
+      setSwitchState(toggleRefs.costOverride, state.costOverride);
+    }
+    if (toggleRefs.poolQuality) {
+      setSwitchState(toggleRefs.poolQuality, state.poolQuality);
+    }
+    if (toggleRefs.luckLock) {
+      setSwitchState(toggleRefs.luckLock, state.luckLock);
+    }
+
+    // Sync status text
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
       const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
       const freeRerollStatus = state.freeReroll ? ' | Free Reroll: ON' : '';
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
       const poolStatus = state.poolQuality ? ' | Pool Quality: ON' : '';
-      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus;
+      const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
+      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus + luckStatus;
       statusEl.className = 'pvu-status ' + (state.hooksApplied ? 'ok' : 'warn');
     }
 
-    // Aggiorna slider
+    // Sync item count slider
     const slider = containerEl.querySelector('#pvu-item-slider');
     const valLabel = containerEl.querySelector('#pvu-item-val');
     if (slider && valLabel) {
-      slider.value = state.itemCountExtra;
-      valLabel.textContent = '+' + state.itemCountExtra;
+      if (document.activeElement !== slider) {
+        slider.value = state.itemCountExtra;
+        valLabel.textContent = '+' + state.itemCountExtra;
+      }
+    }
+
+    // BUG 3: Sync luck slider
+    const luckSlider = containerEl.querySelector('#pvu-luck-slider');
+    const luckValLabel = containerEl.querySelector('#pvu-luck-val');
+    if (luckSlider && luckValLabel) {
+      if (document.activeElement !== luckSlider) {
+        luckSlider.value = state.luckValue;
+        luckValLabel.textContent = state.luckValue;
+      }
+    }
+  }
+
+  /**
+   * Sync a switch element's visual state from a boolean.
+   * Does NOT trigger the click handler — only updates DOM class.
+   */
+  function setSwitchState(switchEl, isOn) {
+    if (!switchEl) return;
+    if (isOn && !switchEl.classList.contains('on')) {
+      switchEl.classList.add('on');
+    } else if (!isOn && switchEl.classList.contains('on')) {
+      switchEl.classList.remove('on');
     }
   }
 
   function destroy() {
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = null;
+    Object.keys(toggleRefs).forEach(function(k) { toggleRefs[k] = null; });
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
   }

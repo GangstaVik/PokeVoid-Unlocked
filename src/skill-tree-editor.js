@@ -1,4 +1,6 @@
 // src/skill-tree-editor.js — Editor skill points + unlock bypass
+// BUG 2 FIX: read/write activeSkillTree.skillPoints (per-run SP), not gd.skillPoints (global)
+// FIX: use resolveActiveChampionId fallback chain for champion detection
 const PvuSkillTreeEditor = (() => {
   const LOG_PREFIX = '[PvuSkillTreeEditor]';
   const UNLOCK_MAP = {
@@ -18,35 +20,60 @@ const PvuSkillTreeEditor = (() => {
   }
 
   /**
-   * Leggi skillPoints correnti.
+   * Get the activeSkillTree object from gameData.
+   * This is the per-run skill tree instance containing skillPoints, tokens, unlockedBranches, etc.
    */
-  function getSkillPoints() {
+  function getActiveSkillTree() {
     const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return 0;
-    return Number(gd.skillPoints || 0);
+    if (!gd) return null;
+    return gd.activeSkillTree || null;
   }
 
   /**
-   * Imposta skillPoints.
+   * Resolve the active champion ID using the game's own fallback chain:
+   * selectedChampionId → activeSkillTree.championId → gender-based default
+   * This matches bundle: resolveActiveChampionId()
+   */
+  function resolveActiveChampionId() {
+    const gd = window.__pvu.bridge.findGameData();
+    if (!gd) return null;
+    const champId = gd.selectedChampionId || (gd.activeSkillTree && gd.activeSkillTree.championId);
+    if (champId === 'apollo_diana') {
+      return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+    }
+    if (champId) return champId;
+    return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+  }
+
+  /**
+   * Leggi skillPoints correnti dal per-run activeSkillTree.
+   * Bundle path: gameData.activeSkillTree.skillPoints (not gameData.skillPoints!)
+   */
+  function getSkillPoints() {
+    const ast = getActiveSkillTree();
+    if (!ast) return 0;
+    return Number(ast.skillPoints || 0);
+  }
+
+  /**
+   * Imposta skillPoints sul per-run activeSkillTree.
    */
   function setSkillPoints(amount) {
-    const gd = window.__pvu.bridge.findGameData();
-    if (!gd) {
-      warn('gameData non disponibile');
+    const ast = getActiveSkillTree();
+    if (!ast) {
+      warn('activeSkillTree non disponibile (nessuna run attiva?)');
       return false;
     }
-    gd.skillPoints = Math.max(0, Math.floor(amount));
-    log('skillPoints impostato a', gd.skillPoints);
+    ast.skillPoints = Math.max(0, Math.floor(amount));
+    log('activeSkillTree.skillPoints impostato a', ast.skillPoints);
     return true;
   }
 
   /**
-   * Get champion ID corrente.
+   * Get champion ID corrente — uses resolveActiveChampionId fallback.
    */
   function getSelectedChampionId() {
-    const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return null;
-    return gd.selectedChampionId || null;
+    return resolveActiveChampionId();
   }
 
   /**
@@ -76,11 +103,12 @@ const PvuSkillTreeEditor = (() => {
 
   /**
    * Get locked skills del champion corrente.
+   * Reads from championData[championId].lockedSkills.
    */
   function getLockedSkills() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return [];
-    const champId = gd.selectedChampionId;
+    const champId = resolveActiveChampionId();
     if (!champId) return [];
     const champData = gd.championData && gd.championData[champId];
     if (!champData) return [];
@@ -93,7 +121,7 @@ const PvuSkillTreeEditor = (() => {
   function getChampionSkillVersion() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return null;
-    const champId = gd.selectedChampionId;
+    const champId = resolveActiveChampionId();
     if (!champId) return null;
     const champData = gd.championData && gd.championData[champId];
     if (!champData) return null;
@@ -110,8 +138,8 @@ const PvuSkillTreeEditor = (() => {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return { ok: false, error: 'gameData non disponibile' };
 
-    const champId = gd.selectedChampionId;
-    if (!champId) return { ok: false, error: 'Nessun champion selezionato' };
+    const champId = resolveActiveChampionId();
+    if (!champId) return { ok: false, error: 'Nessun champion attivo nella run' };
 
     let champData = gd.championData && gd.championData[champId];
     if (!champData) {
@@ -163,7 +191,6 @@ const PvuSkillTreeEditor = (() => {
    */
   function checkVersionWarning() {
     const currentVer = getChampionSkillVersion();
-    const savedVer = null;
     try {
       const saved = localStorage.getItem('__pvu_unlockedVersion');
       if (saved) {

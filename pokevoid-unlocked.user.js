@@ -1018,9 +1018,8 @@ window.__pvu.phaseObserver = PvuPhaseObserver;
 
 
 // --- src/roll-controller.js ---
-// FIX BUG 2: getRerollCost is on SelectModifierPhase (su), NOT on the scene.
-// Strategy: intercept phases as they enter the scene via pushPhase/unshiftPhase,
-// then patch the phase instance directly.
+// FIX BUG 1: getState() already exposed — UI now reads it on every refresh
+// FIX BUG 3: getPartyLuckValue hook + luckValue/luckLock state
 const PvuRollController = (() => {
   const LOG_PREFIX = '[PvuRollController]';
 
@@ -1030,6 +1029,9 @@ const PvuRollController = (() => {
     costOverride: false,
     poolQuality: false,
     itemCountExtra: 2,
+    // BUG 3: luck lock state
+    luckValue: 5,
+    luckLock: false,
     active: false,
     hooksApplied: false,
     patchedPhaseCount: 0,   // quante phase sono state patchate
@@ -1045,6 +1047,7 @@ const PvuRollController = (() => {
     getPlayerModifierTypeOptions: null,
     getRaritiesForRewardType: null,
     updateMoneyText: null,
+    getPartyLuckValue: null,
   };
 
   function log() {
@@ -1056,7 +1059,7 @@ const PvuRollController = (() => {
 
   /**
    * Patch una phase instance con i nostri hook.
-   * Chiamata dal phase observer interceptor quando una fase viene pushata/unshiftata.
+   * Chiamata dal phase observer interceptor quando una fase viene pushata o unshiftata.
    * @param {object} phaseObj - L'istanza della fase
    */
   function patchPhase(phaseObj) {
@@ -1098,11 +1101,6 @@ const PvuRollController = (() => {
     }
 
     // --- getModifierTypeOptions / getPlayerModifierTypeOptions ---
-    // Nel bundle: getPlayerModifierTypeOptions è una function Wd chiamata come Wd.call(scene, count)
-    // La scene ha un metodo che delega. Cerchiamo un metodo sul scene che chiama Wd.
-    // Alternativa: hook direttamente sulla battle scene il metodo che genera le opzioni.
-    // Cerchiamo sulla scene prototype (dalla battle scene) il metodo che può essere getModifierTypeOptions.
-
     const bridge = window.__pvu.bridge;
     const scene = bridge ? bridge.getBattleScene() : null;
     if (scene) {
@@ -1110,9 +1108,6 @@ const PvuRollController = (() => {
       if (!state._sceneOptionsHooked) {
         const sceneProto = Object.getPrototypeOf(scene);
         if (sceneProto) {
-          // Cerca il metodo che genera le opzioni del modifier
-          // Nel bundle: la scene chiama Wd(getModifierTypeOptions) che è il metodo che produce le opzioni
-          // Il metodo è sulla SelectModifierPhase.prototype / scene.prototype
           const candidates = ['getModifierTypeOptions', 'getNewModifierTypeOption', 'getPlayerModifierTypeOptions'];
           for (let ci = 0; ci < candidates.length; ci++) {
             const cand = candidates[ci];
@@ -1138,8 +1133,6 @@ const PvuRollController = (() => {
 
         // FALLBACK: se non troviamo il metodo per nome, cerchiamo per ARITY + comportamento
         if (!state._sceneOptionsHooked && scene) {
-          // Cerca un metodo che: accetta 1 arg numerico e ritorna array di oggetti
-          // Questo è il pattern di getModifierTypeOptions / getPlayerModifierTypeOptions
           const sceneProto = Object.getPrototypeOf(scene);
           if (sceneProto) {
             const methodNames = Object.getOwnPropertyNames(sceneProto);
@@ -1151,12 +1144,9 @@ const PvuRollController = (() => {
               try {
                 const fn = sceneProto[mname];
                 if (typeof fn !== 'function') continue;
-                // Test arity: should accept at least 1 parameter
                 if (fn.length < 1 || fn.length > 3) continue;
 
-                // Check if return looks like it could be options (heuristic via toString)
                 const src = fn.toString();
-                // getModifierTypeOptions usually contains "WeightedModifierType" or "getRaritiesForRewardType"
                 if (src.indexOf('RaritiesForReward') !== -1 ||
                     src.indexOf('ModifierType') !== -1 ||
                     src.indexOf('WeightedModifier') !== -1) {
@@ -1183,8 +1173,6 @@ const PvuRollController = (() => {
     }
 
     // --- getRaritiesForRewardType ---
-    // È una funzione standalone bne, chiamata dal context del gioco.
-    // La troviamo cercando tra i prototype methods della scene o della phase.
     if (!state._raritiesHooked) {
       const sceneProto = scene ? Object.getPrototypeOf(scene) : null;
       const candidates2 = ['getRaritiesForRewardType', 'getRaritiesForReward'];
@@ -1252,10 +1240,82 @@ const PvuRollController = (() => {
       }
     }
 
+    // --- BUG 3: getPartyLuckValue hook ---
+    // The function JFe(a){return Le(7,1)} is a standalone module export, not a prototype method.
+    // We BFS through reachable objects from the scene to find any object with getPartyLuckValue
+    // property and replace it with our hooked version.
+    if (!state._luckHooked && scene) {
+      const luckFn = hookPartyLuckValue(scene);
+      if (luckFn) {
+        state._luckHooked = true;
+        patched = true;
+      }
+    }
+
     if (patched) {
       state.patchedPhaseCount++;
       state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
     }
+  }
+
+  /**
+   * BUG 3: BFS search for getPartyLuckValue on reachable objects, replace with hooked version.
+   * The function is a standalone module export: JFe(a){return Le(7,1)} — ignores param, returns 1-7.
+   * We search for any object that has getPartyLuckValue as a function property.
+   * @param {object} root - Starting object (scene)
+   * @returns {Function|null} original function if found and hooked, null otherwise
+   */
+  function hookPartyLuckValue(root) {
+    const visited = new Set();
+    const queue = [root];
+    let searchCount = 0;
+    const MAX_SEARCH = 800;
+
+    while (queue.length > 0 && searchCount < MAX_SEARCH) {
+      const obj = queue.shift();
+      if (!obj || typeof obj !== 'object') continue;
+      if (visited.has(obj)) continue;
+      visited.add(obj);
+      searchCount++;
+
+      try {
+        if (typeof obj.getPartyLuckValue === 'function' && !obj._pvu_luckHooked) {
+          const origFn = obj.getPartyLuckValue;
+          originals.getPartyLuckValue = origFn;
+          obj.getPartyLuckValue = function luckHooked(a) {
+            if (state.luckLock) {
+              log('getPartyLuckValue: lock attivo, ritorno', state.luckValue, '(originale ignora param)');
+              return state.luckValue;
+            }
+            return origFn(a);
+          };
+          obj._pvu_luckHooked = true;
+          log('getPartyLuckValue trovato e hooked su oggetto (dopo', searchCount, 'oggetti visitati)');
+          return origFn;
+        }
+      } catch(e) { /* skip */ }
+
+      try {
+        // Enqueue prototype
+        const proto = Object.getPrototypeOf(obj);
+        if (proto && proto !== Object.prototype && !visited.has(proto)) {
+          queue.push(proto);
+        }
+        // Enqueue own enumerable values
+        const keys = Object.keys(obj);
+        for (let i = 0; i < keys.length && searchCount < MAX_SEARCH; i++) {
+          try {
+            const val = obj[keys[i]];
+            if (val && typeof val === 'object' && !visited.has(val)) {
+              queue.push(val);
+            }
+          } catch(e) { /* skip */ }
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    warn('getPartyLuckValue non trovato dopo', searchCount, 'oggetti visitati');
+    return null;
   }
 
   /**
@@ -1283,7 +1343,6 @@ const PvuRollController = (() => {
       return;
     }
 
-    // Patch phase instances quando vengono pushate o unshiftate
     observer.onPhasePush(function(phaseObj) {
       patchPhase(phaseObj);
       checkHooksApplied();
@@ -1302,7 +1361,6 @@ const PvuRollController = (() => {
   function checkHooksApplied() {
     if (state.hooksApplied) return;
 
-    // Consideriamo "applied" se almeno getRerollCost è stato patchato
     if (originals.getRerollCost) {
       state.hooksApplied = true;
       state.active = true;
@@ -1317,11 +1375,7 @@ const PvuRollController = (() => {
   function applyHooks() {
     if (state.hooksApplied) return true;
 
-    // Registra interceptor per le fasi future
     registerPhaseInterceptors();
-
-    // Prova anche a patchare la phase corrente se esiste già nella coda
-    // (nel caso il bottone roll venga premuto prima che il nostro hook catturi la fase)
     tryPatchCurrentPhase();
 
     return state.hooksApplied;
@@ -1337,7 +1391,6 @@ const PvuRollController = (() => {
       const game = bridge.getGame();
       if (!game || !game.scene) return;
 
-      // Cerca phases attive nella coda della scena
       const sceneManager = game.scene;
       const scenes = sceneManager.scenes;
       if (!scenes) return;
@@ -1394,12 +1447,30 @@ const PvuRollController = (() => {
     return state.itemCountExtra;
   }
 
+  // === BUG 3: Luck Lock API ===
+
+  function setLuckValue(val) {
+    state.luckValue = Math.max(1, Math.min(7, parseInt(val, 10) || 5));
+    log('Luck value:', state.luckValue);
+    emitStateChange();
+    return state.luckValue;
+  }
+
+  function toggleLuckLock(val) {
+    state.luckLock = val !== undefined ? val : !state.luckLock;
+    log('Luck Lock:', state.luckLock ? 'ON (luck=' + state.luckValue + ')' : 'OFF');
+    emitStateChange();
+    return state.luckLock;
+  }
+
   function getState() {
     return {
       freeReroll: state.freeReroll,
       costOverride: state.costOverride,
       poolQuality: state.poolQuality,
       itemCountExtra: state.itemCountExtra,
+      luckValue: state.luckValue,
+      luckLock: state.luckLock,
       active: state.active,
       hooksApplied: state.hooksApplied,
       patchedPhaseCount: state.patchedPhaseCount,
@@ -1416,9 +1487,11 @@ const PvuRollController = (() => {
     originals.getPlayerModifierTypeOptions = null;
     originals.getRaritiesForRewardType = null;
     originals.updateMoneyText = null;
+    originals.getPartyLuckValue = null;
     state.hooksApplied = false;
     state.active = false;
     state.patchedPhaseCount = 0;
+    state._luckHooked = false;
     log('destroy');
   }
 
@@ -1431,6 +1504,8 @@ const PvuRollController = (() => {
     toggleCostOverride: toggleCostOverride,
     togglePoolQuality: togglePoolQuality,
     setItemCountExtra: setItemCountExtra,
+    setLuckValue: setLuckValue,
+    toggleLuckLock: toggleLuckLock,
   };
 })();
 
@@ -1558,6 +1633,8 @@ window.__pvu.moneyOverride = PvuMoneyOverride;
 
 
 // --- src/skill-tree-editor.js ---
+// BUG 2 FIX: read/write activeSkillTree.skillPoints (per-run SP), not gd.skillPoints (global)
+// FIX: use resolveActiveChampionId fallback chain for champion detection
 const PvuSkillTreeEditor = (() => {
   const LOG_PREFIX = '[PvuSkillTreeEditor]';
   const UNLOCK_MAP = {
@@ -1577,35 +1654,60 @@ const PvuSkillTreeEditor = (() => {
   }
 
   /**
-   * Leggi skillPoints correnti.
+   * Get the activeSkillTree object from gameData.
+   * This is the per-run skill tree instance containing skillPoints, tokens, unlockedBranches, etc.
    */
-  function getSkillPoints() {
+  function getActiveSkillTree() {
     const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return 0;
-    return Number(gd.skillPoints || 0);
+    if (!gd) return null;
+    return gd.activeSkillTree || null;
   }
 
   /**
-   * Imposta skillPoints.
+   * Resolve the active champion ID using the game's own fallback chain:
+   * selectedChampionId → activeSkillTree.championId → gender-based default
+   * This matches bundle: resolveActiveChampionId()
+   */
+  function resolveActiveChampionId() {
+    const gd = window.__pvu.bridge.findGameData();
+    if (!gd) return null;
+    const champId = gd.selectedChampionId || (gd.activeSkillTree && gd.activeSkillTree.championId);
+    if (champId === 'apollo_diana') {
+      return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+    }
+    if (champId) return champId;
+    return gd.gender === 'FEMALE' ? 'diana' : 'apollo';
+  }
+
+  /**
+   * Leggi skillPoints correnti dal per-run activeSkillTree.
+   * Bundle path: gameData.activeSkillTree.skillPoints (not gameData.skillPoints!)
+   */
+  function getSkillPoints() {
+    const ast = getActiveSkillTree();
+    if (!ast) return 0;
+    return Number(ast.skillPoints || 0);
+  }
+
+  /**
+   * Imposta skillPoints sul per-run activeSkillTree.
    */
   function setSkillPoints(amount) {
-    const gd = window.__pvu.bridge.findGameData();
-    if (!gd) {
-      warn('gameData non disponibile');
+    const ast = getActiveSkillTree();
+    if (!ast) {
+      warn('activeSkillTree non disponibile (nessuna run attiva?)');
       return false;
     }
-    gd.skillPoints = Math.max(0, Math.floor(amount));
-    log('skillPoints impostato a', gd.skillPoints);
+    ast.skillPoints = Math.max(0, Math.floor(amount));
+    log('activeSkillTree.skillPoints impostato a', ast.skillPoints);
     return true;
   }
 
   /**
-   * Get champion ID corrente.
+   * Get champion ID corrente — uses resolveActiveChampionId fallback.
    */
   function getSelectedChampionId() {
-    const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return null;
-    return gd.selectedChampionId || null;
+    return resolveActiveChampionId();
   }
 
   /**
@@ -1635,11 +1737,12 @@ const PvuSkillTreeEditor = (() => {
 
   /**
    * Get locked skills del champion corrente.
+   * Reads from championData[championId].lockedSkills.
    */
   function getLockedSkills() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return [];
-    const champId = gd.selectedChampionId;
+    const champId = resolveActiveChampionId();
     if (!champId) return [];
     const champData = gd.championData && gd.championData[champId];
     if (!champData) return [];
@@ -1652,7 +1755,7 @@ const PvuSkillTreeEditor = (() => {
   function getChampionSkillVersion() {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return null;
-    const champId = gd.selectedChampionId;
+    const champId = resolveActiveChampionId();
     if (!champId) return null;
     const champData = gd.championData && gd.championData[champId];
     if (!champData) return null;
@@ -1669,8 +1772,8 @@ const PvuSkillTreeEditor = (() => {
     const gd = window.__pvu.bridge.findGameData();
     if (!gd) return { ok: false, error: 'gameData non disponibile' };
 
-    const champId = gd.selectedChampionId;
-    if (!champId) return { ok: false, error: 'Nessun champion selezionato' };
+    const champId = resolveActiveChampionId();
+    if (!champId) return { ok: false, error: 'Nessun champion attivo nella run' };
 
     let champData = gd.championData && gd.championData[champId];
     if (!champData) {
@@ -1722,7 +1825,6 @@ const PvuSkillTreeEditor = (() => {
    */
   function checkVersionWarning() {
     const currentVer = getChampionSkillVersion();
-    const savedVer = null;
     try {
       const saved = localStorage.getItem('__pvu_unlockedVersion');
       if (saved) {
@@ -2244,10 +2346,15 @@ window.__pvu.floatingBtn = PvuFloatingBtn;
 
 
 // --- src/ui/roll-screen.js ---
+// FIX BUG 1: toggle switches now sync from controller state on every refresh
+// FIX BUG 3: added Luck Lock section with value slider + lock toggle
 const PvuRollScreen = (() => {
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
   let refreshTimer = null;
+
+  // Track toggle switch DOM elements by state key for sync
+  const toggleRefs = {};
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -2267,25 +2374,79 @@ const PvuRollScreen = (() => {
     rerollSection.appendChild(rerollTitle);
 
     // Free Reroll (oneshot)
-    const freeRerollRow = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
+    const freeRerollResult = createToggle('Reroll gratuito', 'Prossimo reroll sarà gratuito (una volta)', false, function(val) {
       window.__pvu.rollController.toggleFreeReroll();
       refreshUI();
     });
-    rerollSection.appendChild(freeRerollRow);
+    rerollSection.appendChild(freeRerollResult.row);
+    toggleRefs.freeReroll = freeRerollResult.switchEl;
 
     // Pool Quality
-    const poolQualityRow = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
+    const poolQualityResult = createToggle('Qualità pool', 'Forza Legendary/Master nel pool', false, function(val) {
       window.__pvu.rollController.togglePoolQuality(val);
     });
-    rerollSection.appendChild(poolQualityRow);
+    rerollSection.appendChild(poolQualityResult.row);
+    toggleRefs.poolQuality = poolQualityResult.switchEl;
 
     // Cost Override
-    const costOverrideRow = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
+    const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
       window.__pvu.rollController.toggleCostOverride(val);
     });
-    rerollSection.appendChild(costOverrideRow);
+    rerollSection.appendChild(costOverrideResult.row);
+    toggleRefs.costOverride = costOverrideResult.switchEl;
 
     containerEl.appendChild(rerollSection);
+
+    // === BUG 3: Luck Lock Section ===
+    const luckSection = document.createElement('div');
+    luckSection.className = 'pvu-section';
+
+    const luckTitle = document.createElement('div');
+    luckTitle.className = 'pvu-section-title';
+    luckTitle.textContent = 'LUCK LOCK';
+    luckSection.appendChild(luckTitle);
+
+    // Luck slider
+    const luckSliderRow = document.createElement('div');
+    luckSliderRow.className = 'pvu-slider-row';
+
+    const luckSlider = document.createElement('input');
+    luckSlider.type = 'range';
+    luckSlider.className = 'pvu-slider';
+    luckSlider.min = '1';
+    luckSlider.max = '7';
+    luckSlider.value = '5';
+    luckSlider.id = 'pvu-luck-slider';
+
+    const luckValLabel = document.createElement('span');
+    luckValLabel.className = 'pvu-slider-val';
+    luckValLabel.textContent = '5';
+    luckValLabel.id = 'pvu-luck-val';
+
+    luckSlider.addEventListener('input', function() {
+      const v = parseInt(luckSlider.value, 10);
+      luckValLabel.textContent = v;
+      window.__pvu.rollController.setLuckValue(v);
+    });
+
+    luckSliderRow.appendChild(luckSlider);
+    luckSliderRow.appendChild(luckValLabel);
+    luckSection.appendChild(luckSliderRow);
+
+    // Luck Lock toggle
+    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per tutti i reroll', false, function(val) {
+      window.__pvu.rollController.toggleLuckLock(val);
+    });
+    luckSection.appendChild(luckLockResult.row);
+    toggleRefs.luckLock = luckLockResult.switchEl;
+
+    // Luck info
+    const luckInfo = document.createElement('div');
+    luckInfo.className = 'pvu-status';
+    luckInfo.textContent = '1 = minimo, 5 = default, 7 = massimo. Il lock sovrascrive il luck del party.';
+    luckSection.appendChild(luckInfo);
+
+    containerEl.appendChild(luckSection);
 
     // === Item Count Section ===
     const itemSection = document.createElement('div');
@@ -2359,6 +2520,10 @@ const PvuRollScreen = (() => {
     refreshUI();
   }
 
+  /**
+   * Create a toggle row. Returns { row, switchEl } so caller can reference the switch DOM.
+   * BUG 1 FIX: caller now receives switchEl for sync in refreshUI.
+   */
   function createToggle(label, description, initial, onChange) {
     const row = document.createElement('div');
     row.className = 'pvu-toggle';
@@ -2388,35 +2553,81 @@ const PvuRollScreen = (() => {
 
     row.appendChild(left);
     row.appendChild(switchEl);
-    row._pvuSwitch = switchEl;
-    return row;
+    return { row: row, switchEl: switchEl };
   }
 
+  /**
+   * BUG 1 FIX: sync all toggle switches and sliders from controller state.
+   * Called on every refresh interval and after user actions.
+   */
   function refreshUI() {
     if (!containerEl) return;
     const state = window.__pvu.rollController.getState();
+
+    // Sync toggle switches from controller state
+    if (toggleRefs.freeReroll) {
+      setSwitchState(toggleRefs.freeReroll, state.freeReroll);
+    }
+    if (toggleRefs.costOverride) {
+      setSwitchState(toggleRefs.costOverride, state.costOverride);
+    }
+    if (toggleRefs.poolQuality) {
+      setSwitchState(toggleRefs.poolQuality, state.poolQuality);
+    }
+    if (toggleRefs.luckLock) {
+      setSwitchState(toggleRefs.luckLock, state.luckLock);
+    }
+
+    // Sync status text
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
       const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
       const freeRerollStatus = state.freeReroll ? ' | Free Reroll: ON' : '';
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
       const poolStatus = state.poolQuality ? ' | Pool Quality: ON' : '';
-      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus;
+      const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
+      statusEl.textContent = hookStatus + freeRerollStatus + costStatus + poolStatus + luckStatus;
       statusEl.className = 'pvu-status ' + (state.hooksApplied ? 'ok' : 'warn');
     }
 
-    // Aggiorna slider
+    // Sync item count slider
     const slider = containerEl.querySelector('#pvu-item-slider');
     const valLabel = containerEl.querySelector('#pvu-item-val');
     if (slider && valLabel) {
-      slider.value = state.itemCountExtra;
-      valLabel.textContent = '+' + state.itemCountExtra;
+      if (document.activeElement !== slider) {
+        slider.value = state.itemCountExtra;
+        valLabel.textContent = '+' + state.itemCountExtra;
+      }
+    }
+
+    // BUG 3: Sync luck slider
+    const luckSlider = containerEl.querySelector('#pvu-luck-slider');
+    const luckValLabel = containerEl.querySelector('#pvu-luck-val');
+    if (luckSlider && luckValLabel) {
+      if (document.activeElement !== luckSlider) {
+        luckSlider.value = state.luckValue;
+        luckValLabel.textContent = state.luckValue;
+      }
+    }
+  }
+
+  /**
+   * Sync a switch element's visual state from a boolean.
+   * Does NOT trigger the click handler — only updates DOM class.
+   */
+  function setSwitchState(switchEl, isOn) {
+    if (!switchEl) return;
+    if (isOn && !switchEl.classList.contains('on')) {
+      switchEl.classList.add('on');
+    } else if (!isOn && switchEl.classList.contains('on')) {
+      switchEl.classList.remove('on');
     }
   }
 
   function destroy() {
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = null;
+    Object.keys(toggleRefs).forEach(function(k) { toggleRefs[k] = null; });
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
   }
@@ -2433,6 +2644,7 @@ window.__pvu.rollScreen = PvuRollScreen;
 
 
 // --- src/ui/skill-screen.js ---
+// FIX BUG 2: reads from activeSkillTree (per-run SP) + resolved champion ID
 const PvuSkillScreen = (() => {
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
@@ -2455,10 +2667,23 @@ const PvuSkillScreen = (() => {
     spTitle.textContent = 'SKILL POINTS';
     spSection.appendChild(spTitle);
 
-    // Champion selector
+    // Active champion display (readonly — shows the run's active champion)
+    const champActiveLabel = document.createElement('div');
+    champActiveLabel.className = 'pvu-toggle-label';
+    champActiveLabel.textContent = 'Champion attivo:';
+    spSection.appendChild(champActiveLabel);
+
+    const champActiveDisplay = document.createElement('div');
+    champActiveDisplay.className = 'pvu-status ok';
+    champActiveDisplay.id = 'pvu-champ-active';
+    champActiveDisplay.textContent = 'Rilevamento...';
+    spSection.appendChild(champActiveDisplay);
+
+    // Champion selector (for manual override)
     const champLabel = document.createElement('div');
     champLabel.className = 'pvu-toggle-label';
-    champLabel.textContent = 'Champion:';
+    champLabel.textContent = 'Seleziona Champion (override):';
+    champLabel.style.marginTop = '8px';
     spSection.appendChild(champLabel);
 
     const champSelect = document.createElement('select');
@@ -2489,6 +2714,9 @@ const PvuSkillScreen = (() => {
       if (result) {
         spInput.style.borderColor = '#4caf50';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1000);
+      } else {
+        spInput.style.borderColor = '#f44336';
+        setTimeout(function() { spInput.style.borderColor = ''; }, 1500);
       }
     });
 
@@ -2545,7 +2773,7 @@ const PvuSkillScreen = (() => {
     const editor = window.__pvu.skillTreeEditor;
     const bridge = window.__pvu.bridge;
 
-    // Aggiorna skill points
+    // Aggiorna skill points from activeSkillTree
     const spInput = containerEl.querySelector('#pvu-sp-input');
     if (spInput) {
       const sp = editor.getSkillPoints();
@@ -2554,7 +2782,14 @@ const PvuSkillScreen = (() => {
       }
     }
 
-    // Aggiorna champion selector
+    // Show active champion from resolveActiveChampionId
+    const champActiveDisplay = containerEl.querySelector('#pvu-champ-active');
+    if (champActiveDisplay) {
+      const activeChampId = editor.getSelectedChampionId();
+      champActiveDisplay.textContent = activeChampId || 'Nessuna run attiva';
+    }
+
+    // Aggiorna champion selector (populated from championData keys)
     const champSelect = containerEl.querySelector('#pvu-champ-select');
     if (champSelect) {
       const currentChamp = editor.getSelectedChampionId();
@@ -2592,7 +2827,7 @@ const PvuSkillScreen = (() => {
       if (unlockables.length === 0) {
         const info = document.createElement('div');
         info.className = 'pvu-info';
-        info.textContent = 'Nessuna skill bloccata (o nessun champion selezionato)';
+        info.textContent = 'Nessuna skill bloccata (o nessun champion attivo nella run)';
         lockedList.appendChild(info);
       } else {
         for (let i = 0; i < unlockables.length; i++) {
@@ -2635,7 +2870,6 @@ const PvuSkillScreen = (() => {
     if (statusEl) {
       const sp = editor.getSkillPoints();
       const champId = editor.getSelectedChampionId();
-      // BUG 5 FIX: garanzia array, mai undefined
       const locked = (editor.getLockedSkills && editor.getLockedSkills()) || [];
       statusEl.textContent = 'SP: ' + sp + ' | Champion: ' + (champId || 'nessuno') + ' | Bloccate: ' + locked.length;
       statusEl.className = 'pvu-status ok';

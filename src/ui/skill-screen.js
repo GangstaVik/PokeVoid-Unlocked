@@ -1,4 +1,5 @@
 // src/ui/skill-screen.js — UI Skill Points Editor (tab Skill)
+// FIX BUG 2: reads from activeSkillTree (per-run SP) + resolved champion ID
 const PvuSkillScreen = (() => {
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
@@ -21,10 +22,23 @@ const PvuSkillScreen = (() => {
     spTitle.textContent = 'SKILL POINTS';
     spSection.appendChild(spTitle);
 
-    // Champion selector
+    // Active champion display (readonly — shows the run's active champion)
+    const champActiveLabel = document.createElement('div');
+    champActiveLabel.className = 'pvu-toggle-label';
+    champActiveLabel.textContent = 'Champion attivo:';
+    spSection.appendChild(champActiveLabel);
+
+    const champActiveDisplay = document.createElement('div');
+    champActiveDisplay.className = 'pvu-status ok';
+    champActiveDisplay.id = 'pvu-champ-active';
+    champActiveDisplay.textContent = 'Rilevamento...';
+    spSection.appendChild(champActiveDisplay);
+
+    // Champion selector (for manual override)
     const champLabel = document.createElement('div');
     champLabel.className = 'pvu-toggle-label';
-    champLabel.textContent = 'Champion:';
+    champLabel.textContent = 'Seleziona Champion (override):';
+    champLabel.style.marginTop = '8px';
     spSection.appendChild(champLabel);
 
     const champSelect = document.createElement('select');
@@ -55,6 +69,9 @@ const PvuSkillScreen = (() => {
       if (result) {
         spInput.style.borderColor = '#4caf50';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1000);
+      } else {
+        spInput.style.borderColor = '#f44336';
+        setTimeout(function() { spInput.style.borderColor = ''; }, 1500);
       }
     });
 
@@ -111,7 +128,7 @@ const PvuSkillScreen = (() => {
     const editor = window.__pvu.skillTreeEditor;
     const bridge = window.__pvu.bridge;
 
-    // Aggiorna skill points
+    // Aggiorna skill points from activeSkillTree
     const spInput = containerEl.querySelector('#pvu-sp-input');
     if (spInput) {
       const sp = editor.getSkillPoints();
@@ -120,7 +137,14 @@ const PvuSkillScreen = (() => {
       }
     }
 
-    // Aggiorna champion selector
+    // Show active champion from resolveActiveChampionId
+    const champActiveDisplay = containerEl.querySelector('#pvu-champ-active');
+    if (champActiveDisplay) {
+      const activeChampId = editor.getSelectedChampionId();
+      champActiveDisplay.textContent = activeChampId || 'Nessuna run attiva';
+    }
+
+    // Aggiorna champion selector (populated from championData keys)
     const champSelect = containerEl.querySelector('#pvu-champ-select');
     if (champSelect) {
       const currentChamp = editor.getSelectedChampionId();
@@ -158,7 +182,7 @@ const PvuSkillScreen = (() => {
       if (unlockables.length === 0) {
         const info = document.createElement('div');
         info.className = 'pvu-info';
-        info.textContent = 'Nessuna skill bloccata (o nessun champion selezionato)';
+        info.textContent = 'Nessuna skill bloccata (o nessun champion attivo nella run)';
         lockedList.appendChild(info);
       } else {
         for (let i = 0; i < unlockables.length; i++) {
@@ -201,7 +225,6 @@ const PvuSkillScreen = (() => {
     if (statusEl) {
       const sp = editor.getSkillPoints();
       const champId = editor.getSelectedChampionId();
-      // BUG 5 FIX: garanzia array, mai undefined
       const locked = (editor.getLockedSkills && editor.getLockedSkills()) || [];
       statusEl.textContent = 'SP: ' + sp + ' | Champion: ' + (champId || 'nessuno') + ' | Bloccate: ' + locked.length;
       statusEl.className = 'pvu-status ok';
