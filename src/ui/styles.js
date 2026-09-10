@@ -17,7 +17,7 @@ const PvuStyles = (() => {
   width: 380px;
   pointer-events: none;
   z-index: 99998;
-  font-family: 'pkmnems', system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   transition: transform 0.3s ease;
 }
 #pvu-container.pvu-hidden {
@@ -68,7 +68,7 @@ const PvuStyles = (() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: 'pkmnems', system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color: #eee;
 }
 
@@ -77,9 +77,9 @@ const PvuStyles = (() => {
   padding: 12px 16px;
   background: #e94560;
   color: #1a1a2e;
-  font-family: 'emerald', system-ui, sans-serif;
-  font-size: 16px;
-  font-weight: bold;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -104,7 +104,7 @@ const PvuStyles = (() => {
   text-align: center;
   cursor: pointer;
   color: #888;
-  font-size: 12px;
+  font-size: 14px;
   border-bottom: 2px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   background: none;
@@ -133,8 +133,8 @@ const PvuStyles = (() => {
   margin-bottom: 16px;
 }
 #pvu-panel .pvu-section-title {
-  font-family: 'emerald', system-ui, sans-serif;
-  font-size: 13px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
   color: #e94560;
   margin-bottom: 8px;
   text-transform: uppercase;
@@ -149,12 +149,12 @@ const PvuStyles = (() => {
   border-bottom: 1px solid #333;
 }
 #pvu-panel .pvu-toggle-label {
-  font-size: 12px;
-  color: #eee;
+  font-size: 14px;
+  color: #f0f0f0;
 }
 #pvu-panel .pvu-toggle-desc {
-  font-size: 10px;
-  color: #888;
+  font-size: 13px;
+  color: #aaa;
 }
 #pvu-panel .pvu-switch {
   width: 40px;
@@ -198,8 +198,8 @@ const PvuStyles = (() => {
   color: #eee;
   padding: 6px 10px;
   border-radius: 4px;
-  font-family: 'pkmnems', monospace;
-  font-size: 13px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
 }
 #pvu-panel .pvu-input:focus {
   border-color: #e94560;
@@ -212,8 +212,8 @@ const PvuStyles = (() => {
   padding: 6px 14px;
   border-radius: 4px;
   cursor: pointer;
-  font-family: 'pkmnems', system-ui;
-  font-size: 12px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
   white-space: nowrap;
 }
 #pvu-panel .pvu-btn:hover {
@@ -224,7 +224,7 @@ const PvuStyles = (() => {
 }
 #pvu-panel .pvu-btn.pvu-btn-sm {
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 13px;
 }
 #pvu-panel .pvu-btn.pvu-btn-outline {
   background: transparent;
@@ -263,20 +263,20 @@ const PvuStyles = (() => {
 #pvu-panel .pvu-slider-val {
   min-width: 30px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: #e94560;
-  font-family: 'pkmnems', monospace;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Status badge */
 #pvu-panel .pvu-status {
-  font-size: 10px;
-  color: #888;
+  font-size: 13px;
+  color: #aaa;
   margin-top: 4px;
 }
-#pvu-panel .pvu-status.ok { color: #4caf50; }
-#pvu-panel .pvu-status.warn { color: #ff9800; }
-#pvu-panel .pvu-status.err { color: #f44336; }
+#pvu-panel .pvu-status.ok { color: #66bb6a; }
+#pvu-panel .pvu-status.warn { color: #ffb74d; }
+#pvu-panel .pvu-status.err { color: #ef5350; }
 
 /* Skill list */
 #pvu-panel .pvu-skill-item {
@@ -287,13 +287,13 @@ const PvuStyles = (() => {
   border-left: 3px solid #e94560;
 }
 #pvu-panel .pvu-skill-name {
-  font-size: 12px;
-  color: #eee;
+  font-size: 14px;
+  color: #f0f0f0;
   margin-bottom: 4px;
 }
 #pvu-panel .pvu-skill-meta {
-  font-size: 10px;
-  color: #888;
+  font-size: 13px;
+  color: #aaa;
 }
 
 /* Warning box */
@@ -303,8 +303,8 @@ const PvuStyles = (() => {
   border-radius: 4px;
   padding: 8px 12px;
   margin-bottom: 12px;
-  font-size: 11px;
-  color: #ff9800;
+  font-size: 13px;
+  color: #ffb74d;
 }
 
 /* Info box */
@@ -314,7 +314,7 @@ const PvuStyles = (() => {
   border-radius: 4px;
   padding: 8px 12px;
   margin-bottom: 12px;
-  font-size: 11px;
+  font-size: 13px;
   color: #90caf9;
 }
 
@@ -337,8 +337,8 @@ const PvuStyles = (() => {
   color: #eee;
   padding: 6px 10px;
   border-radius: 4px;
-  font-family: 'pkmnems', monospace;
-  font-size: 12px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
   width: 100%;
   margin-bottom: 8px;
 }
@@ -349,8 +349,8 @@ const PvuStyles = (() => {
 
 /* Version badge */
 #pvu-panel .pvu-ver {
-  font-size: 9px;
-  color: #666;
+  font-size: 12px;
+  color: #888;
   text-align: right;
   margin-top: 8px;
 }
