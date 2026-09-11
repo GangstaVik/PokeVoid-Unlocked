@@ -49,13 +49,13 @@ jobs:
             --allow-all-tools \
             --allow-tool='shell(git:*)' \
             --allow-tool=write \
-            --deny-tool=write(src/*) \
-            --deny-tool=write(src/ui/*) \
-            --deny-tool=write(src/utils/*) \
-            --deny-tool=write(build.js) \
-            --deny-tool=write(pokevoid-unlocked.user.js) \
-            --deny-tool=write(.github/workflows/*) \
-            --deny-tool=write(CHANGELOG.md) \
+            --deny-tool='write(src/*)' \
+            --deny-tool='write(src/ui/*)' \
+            --deny-tool='write(src/utils/*)' \
+            --deny-tool='write(build.js)' \
+            --deny-tool='write(pokevoid-unlocked.user.js)' \
+            --deny-tool='write(.github/workflows/*)' \
+            --deny-tool='write(CHANGELOG.md)' \
             --no-ask-user \
             --share="$COPILOT_SHARE" \
             --timeout 600000 2>&1 | tee copilot-docs.log
