@@ -4,14 +4,19 @@
 
 ## Stato
 
-🚧 **Early Development** — v0.1.0
+🚀 **v1.3.0** — Always Shiny + Capture Any
 
-## Funzionalità (previste)
+## Funzionalità
 
 | Modulo | Descrizione |
 |--------|-------------|
 | **Roll Controller** | Free reroll, override item count, modifica money |
+| **Money Override** | Modifica soldi, skill points, vouchers permanenti |
 | **Skill Points Editor** | Modifica skill points永久 con bypass prerequisiti |
+| **Always Shiny** | Toggle: ogni Pokémon diventa shiny (wild/boss/rival/legendary). Hook `trySetShiny(65536)` |
+| **Capture Any** | Toggle: cattura qualsiasi Pokémon (boss, rival, legendary, multi-target). L2 wrapper + L1 fallback |
+| **Battle Tab** | Pannello UI per toggle Always Shiny / Capture Any direttamente in battaglia |
+| **Voucher Editor** | Modifica quantità voucher |
 | **UI Flottante** | Pannello dark theme con acceso/discesa rapida |
 
 ## Installazione
@@ -39,13 +44,20 @@ PokeVoid-Unlocked/
 ├── src/
 │   ├── main.js                  # Entry point
 │   ├── game-bridge.js           # Hook su Phaser.Game
+│   ├── phase-observer.js        # Observer per fasi di gioco
 │   ├── roll-controller.js       # Logica roll override
+│   ├── encounter-override.js    # Always Shiny hook (trySetShiny)
+│   ├── capture-override.js      # Capture Any (L2 wrapper + L1 fallback)
+│   ├── money-override.js        # Override money/skill points
 │   ├── skill-tree-editor.js     # Logica skill points
+│   ├── voucher-editor.js        # Logica voucher
 │   ├── ui/
 │   │   ├── panel.js             # Pannello principale
 │   │   ├── floating-btn.js      # Bottone flottante
 │   │   ├── roll-screen.js       # UI roll controller
 │   │   ├── skill-screen.js      # UI skill editor
+│   │   ├── voucher-screen.js    # UI voucher editor
+│   │   ├── battle-screen.js     # UI Always Shiny / Capture Any
 │   │   └── styles.js            # CSS dinamico
 │   └── utils/
 │       ├── config.js            # Configurazioni

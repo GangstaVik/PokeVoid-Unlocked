@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.2.1
+// @version      1.3.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
@@ -17,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.2.1',
+  VERSION: '1.3.0',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
@@ -620,6 +620,51 @@ const PvuStorage = (() => {
     return 'guest';
   }
 
+  // --- Settings utente (toggle shiny / capture) ---
+  // Chiave localStorage separata dai save di gioco: mai toccata da sanitizeSavedData
+  // (che scansiona solo prefissi data_, ed esclude data_pvu_/data_backup).
+  const SETTINGS_KEY = '__pvu_settings';
+
+  // Default settings. `v` = versione schema (forward-compat: il merge in
+  // getSettings aggiunge i campi mancanti ai save scritti con schemi vecchi).
+  const DEFAULT_SETTINGS = { v: 1, shiny: false, capture: false };
+
+  /**
+   * Legge settings con fallback ai default.
+   * - JSON corrotto o assente → default (mai crash).
+   * - Merge con default per campi mancanti (forward-compat).
+   * @returns {{ v: number, shiny: boolean, capture: boolean }}
+   */
+  function getSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      // Merge con default per campi mancanti (forward-compat)
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  /**
+   * Scrive settings (read-modify-write per preservare campi futuri).
+   * - Patch parziale: ogni chiave passata viene mergiata sullo stato corrente.
+   * - `v` forzato allo schema corrente (mai retrocesso da patch malevole).
+   * - Silenzioso su errore (localStorage pieno/privato): il gioco non deve
+   *   crashare per colpa dei nostri toggle.
+   * @param {object} patch - Campi da aggiornare (es. { shiny: true })
+   */
+  function setSettings(patch) {
+    try {
+      const current = getSettings();
+      const merged = { ...current, ...patch, v: DEFAULT_SETTINGS.v };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+    } catch (e) {
+      // silenzioso
+    }
+  }
+
   return {
     createBackup: createBackup,
     validatePostWrite: validatePostWrite,
@@ -628,6 +673,8 @@ const PvuStorage = (() => {
     serializeBigInt: serializeBigInt,
     sanitizeSavedData: sanitizeSavedData,
     getUsername: getUsername,
+    getSettings: getSettings,
+    setSettings: setSettings,
     log: log,
     warn: warn,
     error: error,
@@ -1718,6 +1765,872 @@ const PvuRollController = (() => {
 
 window.__pvu = window.__pvu || {};
 window.__pvu.rollController = PvuRollController;
+
+// --- src/encounter-override.js ---
+// Task 3 v1.3.0. Analisi bundle v3.1.8 (COL 20225068):
+//
+// trySetShiny(t) interno ha GUARDIE che bloccano lo shiny anche con t=65536:
+//   1. Endless + biome END
+//   2. forma speciale (MEGA / PRIMAL / SMITTY)
+//   3. wavePreFinal (boss di wave finale)
+//   4. legendary / mythical / subLegendary
+//   5. rival
+// Se una guardia scatta → return senza scrivere this.shiny.
+//
+// Soluzione: per i Pokemon NEMICI bypass diretto (this.shiny=65536 +
+// initShinySparkle() + generateVariant(), replicando la coda nativa SENZA
+// guardie); per i Pokemon del PLAYER delega al trySetShiny nativo (65536).
+//
+// NOTA: bundle v3.1.8 con mangling OFF → i nomi (.shiny, .isPlayer(),
+// initShinySparkle, generateVariant, trySetShiny) sono preservati in chiaro.
+const PvuEncounterOverride = (() => {
+  const LOG_PREFIX = '[PvuEncounterOverride]';
+  // Symbol diverso dal generico 'pvuPatched' → anti-riwrap dedicato al modulo:
+  // main.js e gli altri moduli non interferiscono con questo hook.
+  const ENCOUNTER_PATCHED = Symbol.for('pvuEncounterPatched');
+
+  // Stato toggle. `shiny` è persistito in localStorage via storage.setSettings
+  // (chiave '__pvu_settings', campo `shiny` già previsto in DEFAULT_SETTINGS).
+  const state = {
+    shiny: false,        // toggle Always Shiny (letto da storage in init)
+    active: false,       // hooks pronti e funzionanti
+    hooksApplied: false, // wrapper su trySetShiny installato
+    pokemonProto: null,  // prototype di Pokemon (scoperto a runtime)
+    pokemonClass: null,  // nome classe per logging
+    hookStats: {
+      total: 0,          // chiamate totali intercettate
+      forced: 0,         // shiny forzati (bypass diretto su nemici)
+      player: 0,         // shiny delegati al nativo (player)
+    },
+  };
+
+  let originalTrySetShiny = null; // riferimento al metodo nativo
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+  function warn() {
+    console.warn.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  /**
+   * Scopre il prototype della classe Pokemon a runtime.
+   * Percorsi in ordine di affidabilità:
+   *   1. Campi noti della battle scene (enemyField, playerField) → children
+   *   2. scene.party (ogni membro è un Pokemon)
+   *   3. Scan di fallback: qualsiasi oggetto nella scene con trySetShiny
+   * Il prototype è condiviso da TUTTI i Pokemon → hooking una volta sola.
+   * @returns {object|null} Il prototype di Pokemon
+   */
+  function discoverPokemonProto() {
+    try {
+      const bridge = window.__pvu.bridge;
+      if (!bridge) return null;
+      const scene = bridge.getBattleScene();
+      if (!scene) return null;
+
+      const candidates = [];
+
+      // 1. Field container (Phaser) → children sono istanze Pokemon
+      const fieldNames = ['enemyField', 'playerField', 'partyField'];
+      for (let i = 0; i < fieldNames.length; i++) {
+        const field = scene[fieldNames[i]];
+        if (!field) continue;
+        const children = (field.children && field.children.list) ? field.children.list : null;
+        if (!children) continue;
+        for (let j = 0; j < children.length; j++) {
+          const c = children[j];
+          if (c && typeof c.trySetShiny === 'function') candidates.push(c);
+        }
+      }
+
+      // 2. party della battle scene
+      if (scene.party) {
+        const party = scene.party;
+        if (Array.isArray(party)) {
+          for (let i = 0; i < party.length; i++) {
+            const p = party[i];
+            if (p && typeof p.trySetShiny === 'function') candidates.push(p);
+          }
+        } else {
+          for (const key in party) {
+            const p = party[key];
+            if (p && typeof p.trySetShiny === 'function') candidates.push(p);
+          }
+        }
+      }
+
+      // 3. Scan di fallback: proprietà della scene
+      for (const key in scene) {
+        const v = scene[key];
+        if (v && typeof v === 'object' &&
+            typeof v.trySetShiny === 'function') {
+          candidates.push(v);
+        }
+      }
+
+      // Estrai il prototype dal primo candidato valido
+      for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        const proto = c.constructor && c.constructor.prototype;
+        if (proto && typeof proto.trySetShiny === 'function' &&
+            !proto[ENCOUNTER_PATCHED]) {
+          state.pokemonProto = proto;
+          state.pokemonClass = (c.constructor.name) || 'unknown';
+          log('Pokemon prototype scoperto:', state.pokemonClass);
+          return proto;
+        }
+      }
+    } catch (e) {
+      warn('discoverPokemonProto fallito:', e);
+    }
+    return null;
+  }
+
+  /**
+   * Bypass diretto per i Pokemon nemici: replica la coda nativa di
+   * trySetShiny (scrittura shiny + sparkle + variant) SENZA passare dalle
+   * guardie che bloccano boss/rival/legendary anche con t=65536.
+   * @param {object} poke - Istanza Pokemon
+   * @returns {undefined} Come il metodo originale (nessun valore di ritorno)
+   */
+  function forceShiny(poke) {
+    poke.shiny = 65536;
+
+    // Sparkle: animazione di brillio — va dopo la scrittura di .shiny
+    // perché l'implementazione interna controlla il flag.
+    if (typeof poke.initShinySparkle === 'function') {
+      try { poke.initShinySparkle(); } catch (e) { /* la sparkle è cosmetic */ }
+    }
+
+    // Variant: la texture/forma shiny (valori enormi per le varianti sparkle)
+    if (typeof poke.generateVariant === 'function') {
+      try { poke.generateVariant(); } catch (e) { /* la variant è cosmetic */ }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Interceptor installato su Pokemon.prototype.trySetShiny.
+   * @param {Function} original - Il trySetShiny nativo
+   * @param {Array} args - [t] dove t è il valore shiny rolling (0 | 65536)
+   */
+  function trySetShinyInterceptor(original, args) {
+    const t = args.length > 0 ? args[0] : 0;
+    state.hookStats.total++;
+
+    // Toggle OFF → vanilla (delega incondizionata)
+    if (!state.shiny) {
+      return original.apply(this, args);
+    }
+
+    // Pokemon del PLAYER → delega al nativo con 65536: il percorso nativo
+    // gestisce sparkle/variant del party in modo corretto (nessuna guardia
+    // nemica qui, e il party va trattato come il gioco intende).
+    if (typeof this.isPlayer === 'function' && this.isPlayer()) {
+      state.hookStats.player++;
+      return original.call(this, 65536);
+    }
+
+    // Nemici → bypass diretto (guardie interne aggirate)
+    if (t !== 65536) {
+      state.hookStats.forced++;
+    }
+    return forceShiny(this);
+  }
+
+  /**
+   * Installa il wrapper su Pokemon.prototype.trySetShiny.
+   * Usa helpers.hookPrototype (anti-riwrap con Symbol.for('pvuPatched'))
+   * più la nostra guardia ENCOUNTER_PATCHED dedicata.
+   * @returns {boolean} true se applicato
+   */
+  function hookTrySetShiny() {
+    try {
+      if (state.hooksApplied) return true;
+
+      const proto = state.pokemonProto || discoverPokemonProto();
+      if (!proto) {
+        log('Pokemon prototype non ancora disponibile (retry)');
+        return false;
+      }
+
+      const helpers = window.__pvu.helpers;
+      if (!helpers || typeof helpers.hookPrototype !== 'function') {
+        warn('helpers non disponibile, impossibile hookare');
+        return false;
+      }
+
+      // Guardia dedicata: se già wrappato da noi, skip (mai doppio wrap)
+      if (proto.trySetShiny && proto.trySetShiny[ENCOUNTER_PATCHED]) {
+        originalTrySetShiny = proto.trySetShiny.__pvuOriginal || proto.trySetShiny;
+        state.hooksApplied = true;
+        state.active = true;
+        log('trySetShiny già hookato, skip');
+        return true;
+      }
+
+      originalTrySetShiny = proto.trySetShiny;
+
+      const result = helpers.hookPrototype(proto, 'trySetShiny',
+        trySetShinyInterceptor);
+
+      // Marca il wrapper col Symbol dedicato (in aggiunta a 'pvuPatched'
+      // che mette hookPrototype) per il mutuo riconoscimento
+      try {
+        const wrapped = proto.trySetShiny;
+        wrapped[ENCOUNTER_PATCHED] = true;
+        wrapped.__pvuOriginal = originalTrySetShiny;
+      } catch (e) { /* proprietary attrs su function: safe in pratica */ }
+
+      state.hooksApplied = true;
+      state.active = true;
+      log('trySetShiny hookato su Pokemon.prototype (class: ' + state.pokemonClass + ')');
+      return true;
+    } catch (e) {
+      warn('hookTrySetShiny fallito:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Applica hooks con retry: il prototype Pokemon può apparire solo dopo
+   * che la battle scene esiste. Idempotente.
+   */
+  function applyHooks() {
+    if (state.hooksApplied) return true;
+
+    let attempts = 0;
+    const timer = setInterval(function() {
+      attempts++;
+      if (hookTrySetShiny()) {
+        clearInterval(timer);
+        return;
+      }
+      // Stop retry se il gioco è partito ma il proto non è trovabile:
+      // discoverPokemonProto è chiamato ad ogni tentativo.
+      if (attempts > 30) {
+        clearInterval(timer);
+        warn('Timeout: Pokemon prototype non trovato dopo 30s');
+      }
+    }, 1000);
+
+    return state.hooksApplied;
+  }
+
+  /**
+   * Toggle Always Shiny. Persistito in localStorage via storage.setSettings.
+   * @param {boolean|undefined} val - valore desiderato (default: inverti)
+   * @returns {boolean} stato finale
+   */
+  function toggleShiny(val) {
+    state.shiny = val !== undefined ? !!val : !state.shiny;
+
+    const storage = window.__pvu.storage;
+    if (storage && typeof storage.setSettings === 'function') {
+      storage.setSettings({ shiny: state.shiny });
+    }
+
+    log('Always Shiny:', state.shiny ? 'ON' : 'OFF');
+    return state.shiny;
+  }
+
+  /**
+   * Legge lo stato persistito all'avvio.
+   * @returns {boolean} stato shiny persistito
+   */
+  function loadPersistedState() {
+    try {
+      const storage = window.__pvu.storage;
+      if (!storage || typeof storage.getSettings !== 'function') return false;
+      const settings = storage.getSettings() || {};
+      state.shiny = !!settings.shiny;
+      return state.shiny;
+    } catch (e) {
+      warn('loadPersistedState fallito:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Init: carica lo stato persistito e avvia il retry degli hooks.
+   */
+  function init() {
+    log('init');
+
+    loadPersistedState();
+    if (state.shiny) {
+      log('Always Shiny attivo da settings precedente');
+    }
+
+    applyHooks();
+  }
+
+  /**
+   * Rimuove il wrapper e ripristina il trySetShiny nativo.
+   */
+  function destroy() {
+    try {
+      if (state.pokemonProto && originalTrySetShiny) {
+        const proto = state.pokemonProto;
+        const wrapped = proto.trySetShiny;
+        if (wrapped && wrapped[ENCOUNTER_PATCHED]) {
+          proto.trySetShiny = originalTrySetShiny;
+          log('trySetShiny ripristinato');
+        }
+      }
+    } catch (e) {
+      warn('destroy fallito:', e);
+    }
+    originalTrySetShiny = null;
+    state.hooksApplied = false;
+    state.active = false;
+    state.pokemonProto = null;
+    log('destroy');
+  }
+
+  /**
+   * Stato completo per la UI.
+   */
+  function getState() {
+    return {
+      shiny: state.shiny,
+      active: state.active,
+      hooksApplied: state.hooksApplied,
+      pokemonClass: state.pokemonClass,
+      hookStats: { ...state.hookStats },
+    };
+  }
+
+  return {
+    init: init,
+    destroy: destroy,
+    applyHooks: applyHooks,
+    toggleShiny: toggleShiny,
+    getState: getState,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.encounterOverride = PvuEncounterOverride;
+
+// --- src/capture-override.js ---
+// Task 4 v1.3.0. Analisi bundle v3.1.8:
+//
+// CommandPhase.handleCommand(t, n, ...s) — COL 16900189, case ro.BALL (enum ro.BALL = 1):
+//
+// GATE di blocco (cascata nel case ro.BALL):
+//   1. tutorial → blocca
+//   2. dynamicMode.noCatch → blocca
+//   3. force-block: biomeType===k.END || isWavePreFinal || (legendary && wave<=1000) || isOPForm && wave<=1000
+//   4. rival: battleType===TRAINER && checkIfRival
+//   5. money: scene.money < getRequiredMoneyForPokeBuy
+//   6. multi-target: enemyField.length > 1
+//   7. boss-major: isBoss() && bossSegmentIndex>=1 && !WONDER_GUARD && !MASTER/VOID
+//   8. void-ball HP: VOID_BALL && hpRatio > 0.25
+//
+// RAMO SUCCESSO (COL 16905667):
+//   turnCommands[fieldIndex] = { command: ro.BALL, cursor: n, args: s.length ? [...s] : void 0 }
+//   turnCommands[fieldIndex].targets = enemyField.filter(active).map(getBattlerIndex)
+//   fieldIndex && (turnCommands[fieldIndex - 1].skip = true)
+//   c = true
+//   return c && this.end(), c          ← end() = setMode(MESSAGE).then(super.end())
+//
+// CHIAMANTE — BallSelectUiHandler COL 20420735:
+//   E.handleCommand(ro.BALL, T.pokeballType) && (setMode(COMMAND, E.getFieldIndex()), setMode(MESSAGE), s = true)
+//   → se false: niente (il nativo ha già gestito il blocco + UI)
+//
+// AttemptCapturePhase (Q1e) — COL 25069:
+//   new gte(scene, targets[0]%2, cursor, args?.[0])
+//   MASTER_BALL ballMult = -1 → catch 100%, VOID_BALL = -2 → catch 100%
+//
+// Strategia L2: wrapper generico su CommandPhase.prototype.handleCommand.
+//   1. Chiamo il gate nativo → lo nativo giudica se accetta o blocca.
+//   2. Se accetta (return true + turnCommands assegnato) → passo through.
+//   3. Se blocca + toggle ON + L2 verificato → forza injection nel ramo successo.
+//      a. Scrivo turnCommands con command/cursor/args/targets/skip
+//      b. ui.clearText() → cancello il testo di blocco
+//      c. phase.end() → termina la CommandPhase
+//      d. return true → il chiamante procede normalmente
+//   4. Dopo 3 errori → auto-degrade a L1 (pokeballCounts=99).
+//
+// L1 fallback (passivo): su ogni CommandPhase, setta pokeballCounts = 99 per
+// tutti i tipi. Risolve solo il blocco "count=0"; i gate boss/rival/etc.
+// richiedono L2.
+//
+// NOTA: bundle v3.1.8 con mangling OFF → CommandPhase.handleCommand è
+// preservato in chiaro; il wrapper è trasparente.
+const PvuCaptureOverride = (() => {
+  const LOG_PREFIX = '[PvuCaptureOverride]';
+  const CAPTURE_PATCHED = Symbol.for('pvuCapturePatched');
+
+  // ro.BALL = 1 verificato nel bundle v3.1.8.
+  // Fallback usato prima che il wrapper abbia osservato un successo nativo.
+  const BALL_CMD_ID_FALLBACK = 1;
+
+  const state = {
+    enabled: false,
+    level: 0,                // 0 = off, 1 = L1 (grant balls), 2 = L2 (wrapper)
+    level2Verified: false,   // true dopo il primo successo nativo osservato
+    commandProto: null,      // prototype di CommandPhase (scoperto a runtime)
+    ballCommandId: null,     // ID del comando BALL nel Command enum (scoperto)
+    injectedCount: 0,        // catture forzate con successo
+    blockedCount: 0,         // tentativi bloccati (debug)
+    errorCount: 0,           // errori del wrapper (auto-degrade >= 3)
+    hooksApplied: false,     // wrapper installato su CommandPhase.prototype
+    l1Applied: false,        // L1 applicato almeno una volta
+    _discoveryRegistered: false, // discovery interceptor registrato
+  };
+
+  let originalHandleCommand = null;
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+  function warn() {
+    console.warn.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  // ─── HELPERS ────────────────────────────────────────────────────────
+
+  /**
+   * Restituisce l'ID del comando BALL.
+   * Dopo il primo successo nativo osservato il valore è in state.ballCommandId;
+   * altrimenti usa il fallback hardcoded (1 = ro.BALL nel bundle v3.1.8).
+   */
+  function getBallCommandId() {
+    if (state.ballCommandId !== null) return state.ballCommandId;
+    return BALL_CMD_ID_FALLBACK;
+  }
+
+  /**
+   * Deriva il fieldIndex dall'istanza CommandPhase.
+   * CommandPhase ha this.fieldIndex dal costruttore (set via super(t) in xc).
+   * Fallback: 0 (player sinistro).
+   */
+  function deriveFieldIndex(phase) {
+    if (typeof phase.fieldIndex === 'number') return phase.fieldIndex;
+    return 0;
+  }
+
+  /**
+   * Verifica se turnCommands[fieldIndex] è già stato assegnato dal nativo.
+   * @returns {boolean} true se il nativo ha già scritto il comando
+   */
+  function turnCommandsAlreadyAssigned(turnCommands, fi) {
+    return !!(turnCommands && turnCommands[fi] && turnCommands[fi].command !== undefined);
+  }
+
+  function checkAutoDegrade() {
+    if (state.errorCount >= 3 && state.level === 2) {
+      state.level = 1;
+      state.level2Verified = false;
+      log('Auto-degrade a L1 dopo', state.errorCount, 'errori del wrapper');
+    }
+  }
+
+  // ─── L1: GRANT BALL COUNTS ──────────────────────────────────────────
+
+  /**
+   * L1: garantisce 99 pokeballs per tutti i tipi nella battle scene.
+   * Passivo: chiamato ad ogni CommandPhase push. Risolve solo il gate
+   * "pokeballCounts[ballType] <= 0"; i gate boss/rival/etc. richiedono L2.
+   * @param {object} scene - Battle scene
+   * @returns {boolean} true se applicato
+   */
+  function applyLevel1(scene) {
+    if (!state.enabled) return false;
+    if (!scene) return false;
+
+    try {
+      // Pokeball counts (POKEBALL, GREAT_BALL, ULTRA_BALL, MASTER_BALL, ecc.)
+      if (scene.pokeballCounts) {
+        var balls = scene.pokeballCounts;
+        for (var key in balls) {
+          if (typeof balls[key] === 'number' && balls[key] < 99) {
+            balls[key] = 99;
+          }
+        }
+      }
+
+      // Type ball counts
+      if (scene.typeBallCounts) {
+        var tb = scene.typeBallCounts;
+        for (var key2 in tb) {
+          if (typeof tb[key2] === 'number' && tb[key2] < 99) {
+            tb[key2] = 99;
+          }
+        }
+      }
+
+      state.l1Applied = true;
+      return true;
+    } catch (e) {
+      warn('applyLevel1 error:', e);
+      return false;
+    }
+  }
+
+  // ─── L2: WRAPPER SU CommandPhase.prototype.handleCommand ────────────
+
+  /**
+   * Forza l'injection nel ramo successo della CommandPhase.
+   * Replica esattamente il nativo: turnCommands + targets + skip partner + end().
+   * @returns {boolean} true se injection riuscita
+   */
+  function forceInject(scene, turnCommands, fi, t, n, s, phase) {
+    try {
+      var enemies = (scene.getEnemyField() || []).filter(function(p) {
+        return p && typeof p.isActive === 'function' && p.isActive(true);
+      });
+      if (!enemies.length) {
+        log('forceInject: nessun nemico attivo, skip');
+        return false;
+      }
+
+      var tc = {
+        command: t,
+        cursor: n,
+        args: (s && s.length > 0) ? Array.prototype.slice.call(s) : void 0
+      };
+      // targets = array di battlerIndex dei nemici attivi (come il nativo: getBattlerIndex())
+      tc.targets = enemies.map(function(p) {
+        return (typeof p.getBattlerIndex === 'function') ? p.getBattlerIndex() : 8;
+      });
+
+      turnCommands[fi] = tc;
+      if (fi > 0 && turnCommands[fi - 1]) {
+        turnCommands[fi - 1].skip = true;
+      }
+
+      // Cancella il testo di blocco e il suo pending prompt
+      if (scene.ui && typeof scene.ui.clearText === 'function') {
+        scene.ui.clearText();
+      }
+
+      // Termina la CommandPhase (setMode(MESSAGE).then(super.end()))
+      if (typeof phase.end === 'function') {
+        phase.end();
+      }
+
+      state.injectedCount++;
+      log('Cattura forzata (#' + state.injectedCount + ') fieldIndex=' + fi +
+          ', cmd=' + t + ', target=' + enemies.map(function(e) {
+            return e.species ? e.species.speciesId : '?';
+          }).join(','));
+      return true;
+
+    } catch (e) {
+      state.errorCount++;
+      checkAutoDegrade();
+      warn('forceInject error:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Interceptor principale installato su CommandPhase.prototype.handleCommand.
+   * Flusso:
+   *   1. Toggle off / scena non disponibile → nativo incondizionato
+   *   2. Chiama il gate nativo → giudica successo/blocco
+   *   3. Successo nativo → passa through + impara ballCommandId
+   *   4. Blocco + L2 verificato + toggle ON → forceInject + return true
+   *   5. Altrimenti → passa il risultato nativo (false)
+   *
+   * @param {Function} original - handleCommand nativo
+   * @param {Array} args - [t, n, ...s]
+   * @returns {boolean}
+   */
+  function wrapperInterceptor(original, args) {
+    var phase = this;
+    var t = args[0];
+    var n = args.length > 1 ? args[1] : undefined;
+    var s = args.slice(2);
+
+    // Toggle OFF o scena non pronta → nativo incondizionato
+    if (!state.enabled) return original.apply(this, args);
+
+    var scene = phase.scene;
+    if (!scene || !scene.currentBattle) return original.apply(this, args);
+
+    var turnCommands = scene.currentBattle.turnCommands;
+    var fi = deriveFieldIndex(phase);
+
+    try {
+      // 1. Chiamo il gate nativo
+      var result = original.apply(this, args);
+
+      // 2. Successo nativo → impara ballCommandId (se non noto)
+      if (result === true && turnCommands && turnCommandsAlreadyAssigned(turnCommands, fi)) {
+        var tcCmd = turnCommands[fi].command;
+        if (state.ballCommandId === null && tcCmd !== undefined) {
+          state.ballCommandId = tcCmd;
+          state.level2Verified = true;
+          log('L2 verificato: ballCommandId =', state.ballCommandId);
+        }
+        return true;
+      }
+
+      // 3. Nativo è tornato true ma turnCommands non assegnato → anomal, passa
+      if (result === true) return true;
+
+      // 4. Bloccato → valuta force inject
+      if (!state.enabled || !state.level2Verified) return result;
+
+      // Verifica: era un comando BALL?
+      var cmd = getBallCommandId();
+      if (cmd !== null && t !== cmd) return result;
+
+      // Force inject
+      return forceInject(scene, turnCommands, fi, t, n, s, phase);
+
+    } catch (e) {
+      state.errorCount++;
+      checkAutoDegrade();
+      warn('Wrapper error:', e);
+      // Fallback: prova il nativo
+      try { return original.apply(phase, args); } catch (e2) { return false; }
+    }
+  }
+
+  // ─── DISCOVERY: CommandPhase.prototype ───────────────────────────────
+
+  /**
+   * Discovery interceptor registrato via phaseObserver.onPhasePush.
+   * Al primo CommandPhase rilevato, ne cattura il prototype e installa il wrapper.
+   * @param {object} phaseObj - istanza della fase pushata
+   */
+  function discoveryInterceptor(phaseObj) {
+    if (state.hooksApplied) return; // già installato
+
+    // Identifica CommandPhase: ha handleCommand (metodo) + fieldIndex (proprietà)
+    if (!phaseObj || typeof phaseObj.handleCommand !== 'function') return;
+    if (typeof phaseObj.fieldIndex !== 'number') return;
+
+    var proto = Object.getPrototypeOf(phaseObj);
+    if (!proto || typeof proto.handleCommand !== 'function') return;
+
+    // Anti-riwrap dedicato
+    if (proto.handleCommand[CAPTURE_PATCHED]) {
+      log('handleCommand già wrappato (CAPTURE_PATCHED)');
+      state.hooksApplied = true;
+      state.commandProto = proto;
+      return;
+    }
+
+    log('CommandPhase scoperto via discovery interceptor');
+    installWrapper(proto);
+  }
+
+  /**
+   * Tenta di scoprire e wrappare CommandPhase.prototype direttamente
+   * dalla battle scene (senza attendere il phase push).
+   */
+  function discoverAndHook() {
+    if (state.hooksApplied) return true;
+
+    var bridge = window.__pvu.bridge;
+    var scene = bridge && bridge.getBattleScene();
+    if (!scene) return false;
+
+    // Scan _phases per trovare un CommandPhase
+    var phases = scene._phases;
+    if (phases && Array.isArray(phases)) {
+      for (var i = 0; i < phases.length; i++) {
+        var p = phases[i];
+        if (p && typeof p.handleCommand === 'function' &&
+            typeof p.fieldIndex === 'number') {
+          var proto = Object.getPrototypeOf(p);
+          if (proto && typeof proto.handleCommand === 'function' &&
+              !proto.handleCommand[CAPTURE_PATCHED]) {
+            state.commandProto = proto;
+            installWrapper(proto);
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Installa il wrapper su CommandPhase.prototype.handleCommand tramite
+   * helpers.hookPrototype (anti-riwrap pvuPatched) + CAPTURE_PATCHED dedicato.
+   * @param {object} proto - CommandPhase.prototype
+   * @returns {boolean} true se installato con successo
+   */
+  function installWrapper(proto) {
+    if (state.hooksApplied) return true;
+
+    var helpers = window.__pvu.helpers;
+    if (!helpers || typeof helpers.hookPrototype !== 'function') {
+      warn('helpers non disponibile');
+      return false;
+    }
+
+    if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
+      log('handleCommand già wrappato (installWrapper)');
+      state.hooksApplied = true;
+      return true;
+    }
+
+    originalHandleCommand = proto.handleCommand;
+    helpers.hookPrototype(proto, 'handleCommand', wrapperInterceptor);
+
+    // Marca col Symbol dedicato (anti-riwrap interno al modulo)
+    try {
+      proto.handleCommand[CAPTURE_PATCHED] = true;
+    } catch (e) { /* proprietary attrs su function: safe in pratica */ }
+
+    state.hooksApplied = true;
+    log('handleCommand wrapper installato su CommandPhase.prototype');
+    return true;
+  }
+
+  // ─── API PUBBLICA ───────────────────────────────────────────────────
+
+  /**
+   * Applica hooks: registra discovery interceptor + tenta discovery diretta.
+   * Idempotente. Chiamato da main.js boot loop.
+   * @returns {boolean} true se wrapper installato
+   */
+  function applyHooks() {
+    if (state.hooksApplied) return true;
+
+    var bridge = window.__pvu.bridge;
+    var phaseObserver = window.__pvu.phaseObserver;
+    var helpers = window.__pvu.helpers;
+
+    if (!bridge || !helpers) return false;
+
+    // Registra discovery interceptor (trigger: ogni CommandPhase push)
+    if (!state._discoveryRegistered && phaseObserver &&
+        typeof phaseObserver.onPhasePush === 'function') {
+      phaseObserver.onPhasePush(discoveryInterceptor);
+      state._discoveryRegistered = true;
+      log('Discovery interceptor registrato');
+    }
+
+    // Tentativo diretto (senza attendere il prossimo phase push)
+    if (!state.hooksApplied) {
+      discoverAndHook();
+    }
+
+    // Applica L1 anche se L2 non è ancora pronto
+    var scene = bridge.getBattleScene();
+    if (scene && state.enabled) {
+      applyLevel1(scene);
+    }
+
+    return state.hooksApplied;
+  }
+
+  /**
+   * Toggle Catch Any Pokemon. Persistito in localStorage via storage.setSettings.
+   * @param {boolean|undefined} val - valore desiderato (default: inverti)
+   * @returns {boolean} stato finale
+   */
+  function toggleCapture(val) {
+    state.enabled = val !== undefined ? !!val : !state.enabled;
+    state.level = state.enabled ? 2 : 0;
+
+    var storage = window.__pvu.storage;
+    if (storage && typeof storage.setSettings === 'function') {
+      storage.setSettings({ capture: state.enabled });
+    }
+
+    log('Catch Any:', state.enabled ? 'ON (L2)' : 'OFF');
+    return state.enabled;
+  }
+
+  /**
+   * Legge lo stato persistito all'avvio.
+   * @returns {boolean} stato capture persistito
+   */
+  function loadPersistedState() {
+    try {
+      var storage = window.__pvu.storage;
+      if (!storage || typeof storage.getSettings !== 'function') return false;
+      var settings = storage.getSettings() || {};
+      state.enabled = !!settings.capture;
+      state.level = state.enabled ? 2 : 0;
+      return state.enabled;
+    } catch (e) {
+      warn('loadPersistedState fallito:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Init: carica stato persistito e avvia hook.
+   * Da chiamare da main.js bootstrap (dopo encounterOverride.init).
+   */
+  function init() {
+    log('init');
+
+    loadPersistedState();
+    if (state.enabled) {
+      log('Catch Any attivo da settings precedente');
+    }
+
+    applyHooks();
+  }
+
+  /**
+   * Stato completo per la UI.
+   */
+  function getState() {
+    return {
+      enabled: state.enabled,
+      level: state.level,
+      level2Verified: state.level2Verified,
+      ballCommandId: state.ballCommandId,
+      hooksApplied: state.hooksApplied,
+      l1Applied: state.l1Applied,
+      injectedCount: state.injectedCount,
+      blockedCount: state.blockedCount,
+      errorCount: state.errorCount,
+    };
+  }
+
+  /**
+   * Rimuove il wrapper e ripristina handleCommand nativo.
+   */
+  function destroy() {
+    try {
+      if (state.commandProto && originalHandleCommand) {
+        var proto = state.commandProto;
+        if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
+          proto.handleCommand = originalHandleCommand;
+          log('handleCommand ripristinato');
+        }
+      }
+    } catch (e) {
+      warn('destroy fallito:', e);
+    }
+    originalHandleCommand = null;
+    state.hooksApplied = false;
+    state.commandProto = null;
+    state.level2Verified = false;
+    state.ballCommandId = null;
+    log('destroy');
+  }
+
+  return {
+    init: init,
+    destroy: destroy,
+    applyHooks: applyHooks,
+    toggleCapture: toggleCapture,
+    getState: getState,
+    applyLevel1: applyLevel1,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.captureOverride = PvuCaptureOverride;
+
 
 // --- src/money-override.js ---
 const PvuMoneyOverride = (() => {
@@ -3424,6 +4337,211 @@ window.__pvu = window.__pvu || {};
 window.__pvu.voucherScreen = PvuVoucherScreen;
 
 
+// --- src/ui/battle-screen.js ---
+// Segue il pattern di roll-screen.js: createToggle, setSwitchState, refreshUI 2s
+const PvuBattleScreen = (() => {
+  const LOG_PREFIX = '[PvuBattleScreen]';
+  let containerEl = null;
+  let refreshTimer = null;
+
+  // Riferimenti DOM ai toggle switch per sync nello refreshUI
+  const toggleRefs = {};
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  function render(parentEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = 'pvu-battle-screen';
+
+    // === INCONTRI — Sempre Shiny ===
+    const encounterSection = document.createElement('div');
+    encounterSection.className = 'pvu-section';
+
+    const encounterTitle = document.createElement('div');
+    encounterTitle.className = 'pvu-section-title';
+    encounterTitle.textContent = 'SEMPRE SHINY';
+    encounterSection.appendChild(encounterTitle);
+
+    var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
+    var shinyResult = createToggle(
+      'Sempre Shiny',
+      'Ogni Pokemon incontrato nasce shiny (wild, boss, rival, legendary)',
+      !!encounterState.shiny,
+      function(val) {
+        window.__pvu.encounterOverride?.toggleShiny?.(val);
+      }
+    );
+    encounterSection.appendChild(shinyResult.row);
+    toggleRefs.shiny = shinyResult.switchEl;
+
+    // Stato hooks encounter
+    var shinyStatus = document.createElement('div');
+    shinyStatus.className = 'pvu-status';
+    shinyStatus.id = 'pvu-battle-shiny-status';
+    shinyStatus.textContent = 'In attesa...';
+    encounterSection.appendChild(shinyStatus);
+
+    containerEl.appendChild(encounterSection);
+
+    // === CATTURA — Cattura Tutto ===
+    const captureSection = document.createElement('div');
+    captureSection.className = 'pvu-section';
+
+    const captureTitle = document.createElement('div');
+    captureTitle.className = 'pvu-section-title';
+    captureTitle.textContent = 'CATTURA TUTTO';
+    captureSection.appendChild(captureTitle);
+
+    var captureState = window.__pvu.captureOverride?.getState?.() || {};
+    var captureResult = createToggle(
+      'Cattura Tutto',
+      'Qualsiasi lancio di Pokeball cattura sempre il Pokemon (L2 wrapper, fallback L1)',
+      !!captureState.enabled,
+      function(val) {
+        window.__pvu.captureOverride?.toggleCapture?.(val);
+      }
+    );
+    captureSection.appendChild(captureResult.row);
+    toggleRefs.capture = captureResult.switchEl;
+
+    // Status row cattura
+    var captureStatus = document.createElement('div');
+    captureStatus.className = 'pvu-status';
+    captureStatus.id = 'pvu-battle-capture-status';
+    captureStatus.textContent = 'In attesa...';
+    captureSection.appendChild(captureStatus);
+
+    containerEl.appendChild(captureSection);
+
+    // Version badge
+    var verEl = document.createElement('div');
+    verEl.className = 'pvu-ver';
+    verEl.textContent = 'PokeVoid-Unlocked v' + (window.__pvu.config ? window.__pvu.config.VERSION : '1.0.0');
+    containerEl.appendChild(verEl);
+
+    parentEl.appendChild(containerEl);
+
+    // Auto-refresh stato (2s, come roll-screen)
+    refreshTimer = setInterval(refreshUI, 2000);
+    refreshUI();
+  }
+
+  /**
+   * Crea un toggle switch con label e descrizione.
+   * Restituisce { row, switchEl } — stesso pattern di roll-screen.js.
+   */
+  function createToggle(label, description, initial, onChange) {
+    const row = document.createElement('div');
+    row.className = 'pvu-toggle';
+
+    const left = document.createElement('div');
+    const labelEl = document.createElement('div');
+    labelEl.className = 'pvu-toggle-label';
+    labelEl.textContent = label;
+    left.appendChild(labelEl);
+
+    if (description) {
+      const descEl = document.createElement('div');
+      descEl.className = 'pvu-toggle-desc';
+      descEl.textContent = description;
+      left.appendChild(descEl);
+    }
+
+    const switchEl = document.createElement('div');
+    switchEl.className = 'pvu-switch' + (initial ? ' on' : '');
+
+    switchEl.addEventListener('click', function() {
+      const isOn = switchEl.classList.toggle('on');
+      if (typeof onChange === 'function') {
+        onChange(isOn);
+      }
+    });
+
+    row.appendChild(left);
+    row.appendChild(switchEl);
+    return { row: row, switchEl: switchEl };
+  }
+
+  /**
+   * Aggiorna tutti gli switch e i testi di stato dallo stato reale dei moduli.
+   * Chiamata ogni 2s dal refreshTimer e al primo render.
+   */
+  function refreshUI() {
+    if (!containerEl) return;
+
+    var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
+    var captureState = window.__pvu.captureOverride?.getState?.() || {};
+
+    // --- Shiny toggle + status ---
+    setSwitchState(toggleRefs.shiny, !!encounterState.shiny);
+
+    var shinyStatusEl = containerEl.querySelector('#pvu-battle-shiny-status');
+    if (shinyStatusEl) {
+      var encHooks = encounterState.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      var encDetail = encounterState.hooksApplied
+        ? ' — Pokemon: ' + (encounterState.hookStats?.pokemonPatched || 0)
+        : '';
+      shinyStatusEl.textContent = encHooks + encDetail;
+      shinyStatusEl.className = 'pvu-status ' + (encounterState.hooksApplied ? 'ok' : 'warn');
+    }
+
+    // --- Capture toggle + status ---
+    setSwitchState(toggleRefs.capture, !!captureState.enabled);
+
+    var captureStatusEl = containerEl.querySelector('#pvu-battle-capture-status');
+    if (captureStatusEl && captureState.enabled) {
+      var levelText = captureState.level === 2
+        ? (captureState.level2Verified ? 'L2 (wrapper) ✅' : 'L2 (wrapper) ⏳ in verifica')
+        : captureState.level === 1
+          ? 'L1 (fallback) ⚠️'
+          : '—';
+      var captured = captureState.injectedCount || 0;
+      var errors = captureState.errorCount || 0;
+      captureStatusEl.textContent =
+        'Livello: ' + levelText +
+        ' | Catture forzate: ' + captured +
+        ' | Errori: ' + errors;
+      captureStatusEl.className = 'pvu-status ' +
+        (errors >= 3 ? 'err' : errors > 0 ? 'warn' : 'ok');
+    } else if (captureStatusEl) {
+      captureStatusEl.textContent = 'Cattura Tutto disattivata';
+      captureStatusEl.className = 'pvu-status';
+    }
+  }
+
+  /**
+   * Sync stato visuale di uno switch con un booleano (senza triggerare l'onChange).
+   */
+  function setSwitchState(switchEl, isOn) {
+    if (!switchEl) return;
+    if (isOn && !switchEl.classList.contains('on')) {
+      switchEl.classList.add('on');
+    } else if (!isOn && switchEl.classList.contains('on')) {
+      switchEl.classList.remove('on');
+    }
+  }
+
+  function destroy() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+    Object.keys(toggleRefs).forEach(function(k) { toggleRefs[k] = null; });
+    if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
+    containerEl = null;
+  }
+
+  return {
+    render: render,
+    refreshUI: refreshUI,
+    destroy: destroy,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.battleScreen = PvuBattleScreen;
+
+
 // --- src/ui/panel.js ---
 const PvuPanel = (() => {
   const LOG_PREFIX = '[PvuPanel]';
@@ -3482,11 +4600,13 @@ const PvuPanel = (() => {
     const tabRoll = createTab('🎲 Roll', 'roll');
     const tabSkill = createTab('🌳 Skill', 'skill');
     const tabVoucher = createTab('🎟️ Voucher', 'voucher');
+    const tabBattle = createTab('🎯 Battle', 'battle');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
     tabs.appendChild(tabSkill);
     tabs.appendChild(tabVoucher);
+    tabs.appendChild(tabBattle);
     panelEl.appendChild(tabs);
 
     // Tab content area
@@ -3568,6 +4688,10 @@ const PvuPanel = (() => {
       case 'voucher':
         window.__pvu.voucherScreen.render(content);
         activeScreen = window.__pvu.voucherScreen;
+        break;
+      case 'battle':
+        window.__pvu.battleScreen.render(content);
+        activeScreen = window.__pvu.battleScreen;
         break;
     }
   }
@@ -3781,6 +4905,20 @@ window.__pvu.panel = PvuPanel;
     pvu.rollController.init();
   }
 
+  // 5b. Init encounter override (Always Shiny) — lo stato persistito viene
+  // letto qui; gli hooks vengono applicati con retry su Pokemon.prototype
+  // quando la battle scene esiste.
+  if (pvu.encounterOverride) {
+    pvu.encounterOverride.init();
+  }
+
+  // 5c. Init capture override (Catch Any) — stato persistito letto qui;
+  // gli hooks vengono applicati con retry su CommandPhase.prototype
+  // quando la battle scene esiste (nel hookInterval sotto).
+  if (pvu.captureOverride) {
+    pvu.captureOverride.init();
+  }
+
   // 6. Attendi che il gioco sia pronto e applica hooks
   let hookAttempts = 0;
   const hookInterval = setInterval(function() {
@@ -3816,6 +4954,16 @@ window.__pvu.panel = PvuPanel;
     // Hook phase methods
     if (pvu.phaseObserver) {
       pvu.phaseObserver.hookPhaseMethods();
+    }
+
+    // Hook encounter override (Always Shiny) — retry interno su Pokemon.prototype
+    if (pvu.encounterOverride) {
+      pvu.encounterOverride.applyHooks();
+    }
+
+    // Hook capture override (Catch Any) — retry interno su CommandPhase.prototype
+    if (pvu.captureOverride) {
+      pvu.captureOverride.applyHooks();
     }
 
     clearInterval(hookInterval);
