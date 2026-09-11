@@ -79,7 +79,7 @@ const PvuCaptureOverride = (() => {
     capturedCount: 0,        // catture realizzate (catch con override armato)
     rollOverrideReady: null, // tri-state: null=non determinato, true=wrappabile, false=NON attivo
     rollOverrideArmed: false,// transitorio: randSeedInt patched in questo istante
-    captureTokens: [],       // [{ pokemon, turn, pokeballType }] armati in force-inject
+    captureTokens: [],       // [{ pokemon, turn, pokeballType, fieldIndex }] armati in force-inject (D3)
     _attemptRegistered: false,
     _turnBoundaryRegistered: false,
     _l1BackstopRegistered: false,
@@ -152,8 +152,13 @@ const PvuCaptureOverride = (() => {
 
   /**
    * Esclusioni deterministiche (fail-closed) per il force-inject.
-   * Identiche ai gate deterministici nativi; l'unico caso "non deterministico"
-   * del nativo (bypass casuale 1/10000) non viene replicato.
+   * Replica i gate deterministici del nativo (bundle v3.1.8, case ro.BALL):
+   * rival, multi-target, biome END, wave pre-final,
+   * leggendario/OP-form pre-wave-1000 e boss-major.
+   * Non replicati: bypass casuale 1/10000 (Le(1e4,1)<=1) e il jolly
+   * activeSkillTree.legendaryEncounterChanceBySpecies.
+   * Ogni controllo che solleva eccezione ⇒ escluso (fail-closed): mai
+   * force-catch su un eventuale rival/scripted/boss (C1+C2).
    * @returns {boolean} true = escludi (NON iniettare)
    */
   function isExcluded(scene) {
@@ -162,11 +167,17 @@ const PvuCaptureOverride = (() => {
       if (!battle) return true;
 
       // 1. rival/scripted: battleType===TRAINER && gameMode.checkIfRival(scene)
+      //    C1 (fail-closed): checkIfRival che solleva ⇒ escluso (mai
+      //    force-catch su un eventuale rival/scripted).
       var gMode = scene.gameMode;
       if (battle.battleType === BATTLE_TYPE_TRAINER && gMode &&
           typeof gMode.checkIfRival === 'function') {
         var rival = false;
-        try { rival = gMode.checkIfRival(scene) === true; } catch (e) {}
+        try {
+          rival = gMode.checkIfRival(scene) === true;
+        } catch (e) {
+          return true;
+        }
         if (rival) { log('Esclusione: rival (scripted)'); return true; }
       }
 
@@ -191,14 +202,42 @@ const PvuCaptureOverride = (() => {
         return true;
       }
 
-      // 4. wave pre-final
+      // 4. wave pre-final (C1: isWavePreFinal che solleva ⇒ escluso)
       if (gMode && typeof gMode.isWavePreFinal === 'function') {
         var preFinal = false;
-        try { preFinal = gMode.isWavePreFinal(scene) === true; } catch (e) {}
+        try {
+          preFinal = gMode.isWavePreFinal(scene) === true;
+        } catch (e) {
+          return true;
+        }
         if (preFinal) { log('Esclusione: wave pre-final'); return true; }
       }
 
-      // 5. boss-major segment >= 1 (fail-closed: segmento ignoto ⇒ escluso)
+      // 5. leggendario / OP-form pre-wave-1000 (gate nativo v3.1.8, COL
+      //    16903330: T = currentBattle.waveIndex<=1000; branch leggendario =
+      //    enemyField.some(active && species.isLegendSubOrMystical() && T);
+      //    branch OP-form = enemyField.some(active && isOPForm()) && T).
+      //    C2 (fail-closed): throw ⇒ escluso.
+      try {
+        var waveIdx = battle.waveIndex;
+        if (typeof waveIdx === 'number' && waveIdx <= 1000) {
+          var preThousand = enemies.some(function (p) {
+            if (!p || !p.species) return false;
+            if (typeof p.isOPForm === 'function' && p.isOPForm()) return true;
+            if (typeof p.species.isLegendSubOrMystical === 'function' &&
+                p.species.isLegendSubOrMystical()) return true;
+            return false;
+          });
+          if (preThousand) {
+            log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
+            return true;
+          }
+        }
+      } catch (e) {
+        return true;
+      }
+
+      // 6. boss-major segment >= 1 (fail-closed: segmento ignoto ⇒ escluso)
       var target = enemies[0];
       if (target && typeof target.isBoss === 'function' && target.isBoss()) {
         var seg = target.bossSegmentIndex;
@@ -216,16 +255,22 @@ const PvuCaptureOverride = (() => {
   }
 
   /**
-   * Arma l'override probabilità: sostituisce pokemon.randSeedInt con () => -1.
+   * Arma l'override probabilità: sostituisce pokemon.randSeedInt con una
+   * versione scoped che forza -1 SOLO per il draw di cattura (v===65536, il
+   * t.randSeedInt(65536) del tween onRepeat di AttemptCapturePhase.start).
    * -1 < m per ogni m>=0 (m=0 incluso: -1 < 0 true), quindi il primo draw
-   * del tween di AttemptCapturePhase passa sempre. Restore in disarmCapture.
-   * @returns {boolean} true se patchato
+   * passa sempre; ogni altro draw (range != 65536) passa al nativo. FIX 4.
+   * Restore in disarmCapture. @returns {boolean} true se patchato
    */
   function armCapture(self, pokemon) {
     if (!pokemon || typeof pokemon.randSeedInt !== 'function') return false;
     if (!pokemon.__pvuRandPatched) {
       pokemon.__pvuOrigRandSeedInt = pokemon.randSeedInt;
-      pokemon.randSeedInt = function () { return -1; };
+      // FIX 4: scope del patch al solo draw di cattura (65536); ogni altro
+      // draw passa al nativo. Niente più patch wholesale () => -1.
+      pokemon.randSeedInt = function (v) {
+        return v === 65536 ? -1 : pokemon.__pvuOrigRandSeedInt.apply(this, arguments);
+      };
       pokemon.__pvuRandPatched = true;
     }
     self.__pvuPokemon = pokemon;
@@ -254,7 +299,11 @@ const PvuCaptureOverride = (() => {
    * Cerca il token per la AttemptCapturePhase corrente.
    * Match primario: identità dell'oggetto pokemon (phase.getPokemon() ===
    * token.pokemon). Fallback (getPokemon non disponibile): pokeballType uguale
-   * e stesso turno. Token stantio (turno cambiato) ⇒ rimosso.
+   * e stesso turno. D3: in entrambe le vie il fieldIndex della phase
+   * (PokemonPhase: battlerIndex=ENEMY+slot → fieldIndex=slot 0/1) deve
+   * combaciare col fieldIndex del token (fi del CommandPhase mittente): un
+   * lancio dello stesso turno da un partner su campo diverso NON consuma.
+   * Token stantio (turno cambiato) ⇒ rimosso.
    */
   function findTokenForPhase(phaseObj) {
     if (!state.captureTokens.length) return null;
@@ -266,6 +315,8 @@ const PvuCaptureOverride = (() => {
     } catch (e) { /* phase non ancora iniziata */ }
 
     var battle = phaseObj && phaseObj.scene ? phaseObj.scene.currentBattle : null;
+    var phaseFi = (phaseObj && typeof phaseObj.fieldIndex === 'number')
+      ? phaseObj.fieldIndex : null;
     for (var i = state.captureTokens.length - 1; i >= 0; i--) {
       var tk = state.captureTokens[i];
       if (battle && typeof battle.turn === 'number' && typeof tk.turn === 'number' &&
@@ -274,12 +325,15 @@ const PvuCaptureOverride = (() => {
         continue;
       }
       if (pokemon) {
-        if (tk.pokemon === pokemon) {
+        if (tk.pokemon === pokemon &&
+            (phaseFi === null || tk.fieldIndex === phaseFi)) {
           tk.pokemon = pokemon;
           return tk;
         }
       } else if (tk.pokeballType !== undefined && tk.pokeballType === phaseObj.pokeballType) {
-        return tk;
+        if (phaseFi !== null && tk.fieldIndex === phaseFi) {
+          return tk;
+        }
       }
     }
     return null;
@@ -464,6 +518,11 @@ const PvuCaptureOverride = (() => {
    */
   function forceInject(scene, turnCommands, fi, t, n, s, phase) {
     try {
+      // FIX F: null-guard su turnCommands — senza turnCommands non c'è
+      // nessun ramo successo da replicare; fail-safe silenzioso (niente
+      // errorCount++, niente warn: non è un errore del wrapper).
+      if (!turnCommands || !Array.isArray(turnCommands)) return false;
+
       var enemies = (scene.getEnemyField() || []).filter(function(p) {
         return p && typeof p.isActive === 'function' && p.isActive(true);
       });
@@ -489,13 +548,16 @@ const PvuCaptureOverride = (() => {
         turnCommands[fi - 1].skip = true;
       }
 
-      // V1.4: token-arm per l'override probabilità di cattura
+      // V1.4: token-arm per l'override probabilità di cattura.
+      // D3: il token porta il fieldIndex del CommandPhase mittente (fi):
+      // il consumo (findTokenForPhase) richiede match di campo.
       var target = enemies[0];
       state.captureTokens.push({
         pokemon: target,
         turn: (scene.currentBattle && typeof scene.currentBattle.turn === 'number')
           ? scene.currentBattle.turn : 0,
-        pokeballType: n
+        pokeballType: n,
+        fieldIndex: fi
       });
 
       // V1.4: pre-grant economico per snatch trainer (la cattura forza la
