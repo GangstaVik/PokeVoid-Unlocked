@@ -58,7 +58,7 @@ jobs:
             --deny-tool='write(.github/workflows/*)' \
             --deny-tool='write(CHANGELOG.md)' \
             --no-ask-user \
-            --share="$COPILOT_SHARE" \
+            --share="$COPILOT_SHARE/session.json" \
             2>&1 | tee copilot-docs.log
 
       - name: GUARD — revert any change on protected paths
