@@ -65,6 +65,13 @@
     pvu.rollController.init();
   }
 
+  // 5b. Init encounter override (Always Shiny) — lo stato persistito viene
+  // letto qui; gli hooks vengono applicati con retry su Pokemon.prototype
+  // quando la battle scene esiste.
+  if (pvu.encounterOverride) {
+    pvu.encounterOverride.init();
+  }
+
   // 6. Attendi che il gioco sia pronto e applica hooks
   let hookAttempts = 0;
   const hookInterval = setInterval(function() {
@@ -100,6 +107,11 @@
     // Hook phase methods
     if (pvu.phaseObserver) {
       pvu.phaseObserver.hookPhaseMethods();
+    }
+
+    // Hook encounter override (Always Shiny) — retry interno su Pokemon.prototype
+    if (pvu.encounterOverride) {
+      pvu.encounterOverride.applyHooks();
     }
 
     clearInterval(hookInterval);
