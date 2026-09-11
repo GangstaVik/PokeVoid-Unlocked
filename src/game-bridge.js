@@ -194,16 +194,56 @@ const PvuGameBridge = (() => {
   }
 
 /**
+   * SAFETY NET v1.2.1 (anti-corruzione BigInt): normalizza permaMoney a runtime.
+   * Il gioco tratta permaMoney come number in ogni uso (updatePermaMoney →
+   * Math.round, UI, `(permaMoney||0)+d`, confronti). Un BigInt (o la stringa
+   * "123n" prodotta da serializeBigInt) fa:
+   *   - freeze Ω in-sessione: (permaMoney||0)+d → BigInt+Number → TypeError
+   *   - [LOAD ERROR] al riavvio: initSystem restore → Cannot convert a BigInt
+   * Idempotente: se permaMoney è già number non tocca nulla (nessun log di rumore
+   * dal poll 500ms).
+   * @param {object|null} gameData
+   * @returns {object|null}
+   */
+  function sanitizeGameDataRuntime(gameData) {
+    try {
+      if (!gameData || typeof gameData !== 'object' || gameData.__pvu_sanitized) {
+        return gameData;
+      }
+      const v = gameData.permaMoney;
+      if (typeof v === 'bigint') {
+        gameData.permaMoney = Number(v);
+        warn('permaMoney era BigInt → normalizzato a Number (safety net runtime)');
+      } else if (typeof v === 'string') {
+        const m = /^(\d+)n?$/.exec(v.trim());
+        if (m) {
+          gameData.permaMoney = Number(m[1]);
+          warn('permaMoney era stringa ("' + v + '") → normalizzato a Number (safety net runtime)');
+        }
+      }
+      // Marca per evitare re-check inutili nello stesso oggetto (poll 500ms).
+      // Usa defineProperty non-enumerabile per non sporcare falsificazione del save
+      // (JSON.stringify la ignora, ma il gioco la ridefinirebbe comunque in updatePermaMoney).
+      try {
+        Object.defineProperty(gameData, '__pvu_sanitized', { value: true, writable: false, configurable: true, enumerable: false });
+      } catch (e) { /* ignore */ }
+    } catch (e) {
+      warn('sanitizeGameDataRuntime fallito:', e);
+    }
+    return gameData;
+  }
+
+  /**
    * Get game data dal game instance.
    */
   function getGameData() {
     const scene = getBattleScene();
-    if (scene && scene.gameData) return scene.gameData;
+    if (scene && scene.gameData) return sanitizeGameDataRuntime(scene.gameData);
     const game = getGame();
     if (game && game.scene && game.scene.scenes) {
       for (const key in game.scene.scenes) {
         const s = game.scene.scenes[key];
-        if (s && s.gameData) return s.gameData;
+        if (s && s.gameData) return sanitizeGameDataRuntime(s.gameData);
       }
     }
     return null;
@@ -316,7 +356,7 @@ const PvuGameBridge = (() => {
     // 1. Battle scene prima — ha il gameData della run corrente
     // (getBattleScene ha il fallback CanvasPool interno)
     const bs = getBattleScene();
-    if (bs && bs.gameData) return bs.gameData;
+    if (bs && bs.gameData) return sanitizeGameDataRuntime(bs.gameData);
 
     // 2. Solo come ultima spiaggia: game instance → scan scene registrate
     const game = getGame();
@@ -326,7 +366,7 @@ const PvuGameBridge = (() => {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
         const s = scenes[key];
-        if (s && s.gameData) return s.gameData;
+        if (s && s.gameData) return sanitizeGameDataRuntime(s.gameData);
       }
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.2.0
+// @version      1.2.1
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
@@ -17,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.2.0',
+  VERSION: '1.2.1',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
@@ -475,6 +475,130 @@ const PvuStorage = (() => {
   }
 
   /**
+   * Recursive: normalizza ogni `permaMoney` corrotto dentro un oggetto save.
+   * Il gioco salva permaMoney come number; un BigInt (o la stringa "123n" prodotta
+   * dalla serializzazione usercamp) rompe al load (`[... initSystem failed:
+   * Cannot convert a BigInt value to a number`).
+   * @param {object} obj - nodo corrente (oggetto o array)
+   * @returns {boolean} true se qualcosa è stato modificato
+   */
+  function sanitizePermaMoney(obj) {
+    let changed = false;
+    if (obj === null || typeof obj !== 'object') return false;
+
+    // Primo livello: proprietà "permaMoney" (propria del nodo).
+    if (Object.prototype.hasOwnProperty.call(obj, 'permaMoney')) {
+      const v = obj.permaMoney;
+      if (typeof v === 'string') {
+        const m = /^(\d+)n?$/.exec(v.trim());
+        if (m) {
+          obj.permaMoney = Number(m[1]);
+          changed = true;
+        }
+      } else if (typeof v === 'bigint') {
+        obj.permaMoney = Number(v);
+        changed = true;
+      }
+    }
+
+    // Livello successivo: array e oggetti annidati (walk ricorsiva).
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        if (obj[i] !== null && typeof obj[i] === 'object') {
+          if (sanitizePermaMoney(obj[i])) changed = true;
+        }
+      }
+    } else {
+      for (const key in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const v = obj[key];
+        if (v !== null && typeof v === 'object') {
+          if (sanitizePermaMoney(v)) changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * Sanitizzazione allo start: scansiona TUTTI i save `data_*` nel localStorage e
+   * corregge ogni permaMoney corrotto (stringa "123n" / BigInt) → number.
+   *
+   * - Solo chiavi con prefisso `data_` (i save del gioco), esclusi i nostri backup
+   *   (`data_pvu_backup_*`) e i backup legacy (`data_backup*`).
+   * - NON tocca `settings`, `sessionData*`, `runHistoryData_*` → verificabili il gioco.
+   * - Idempotente: nessun write se non c'è nulla da correggere. Pattern createBackup
+   *   + validatePostWrite su ogni chiave modificata (rollback su mismatch).
+   * @returns {{ ok: boolean, fixed: number, error?: string }}
+   */
+  function sanitizeSavedData() {
+    try {
+      let fixed = 0;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (!k.startsWith('data_')) continue;
+        if (k.startsWith('data_pvu_') || k.startsWith('data_backup')) continue;
+        keys.push(k);
+      }
+
+      for (let ki = 0; ki < keys.length; ki++) {
+        const key = keys[ki];
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (e) {
+          // Save non-JSON: lascialo stare (il gioco lo gestirà).
+          continue;
+        }
+        if (parsed === null || typeof parsed !== 'object') continue;
+
+        if (sanitizePermaMoney(parsed)) {
+          const jsonStr = JSON.stringify(parsed);
+
+          // Usa protocollo standard: backup → write → validate
+          const username = key.substring(5);
+          const backup = createBackup(username);
+          if (!backup.ok) {
+            warn('Backup fallito durante sanitize, chiave saltata:', key, backup.error);
+            continue;
+          }
+
+          try {
+            localStorage.setItem(key, jsonStr);
+            const validation = validatePostWrite(username, jsonStr, backup.key);
+            if (!validation.ok) {
+              error('Validazione sanitize fallita per', key, '— rollback applicato');
+              continue;
+            }
+            fixed++;
+            log('Sanitizzato', key, '(permaMoney corretto)' + (backup.key ? ' | backup: ' + backup.key : ''));
+          } catch (e) {
+            error('Write sanitize fallito per', key, e);
+            // rollback manuale se validatePostWrite non ha potuto agire
+            try {
+              const bk = localStorage.getItem(backup.key);
+              if (bk) localStorage.setItem(key, bk);
+            } catch (e2) { /* ignore */ }
+          }
+        }
+      }
+
+      if (fixed > 0) {
+        log('Sanitizzazione completata:', fixed, 'chiavi corrette');
+      }
+      return { ok: true, fixed: fixed };
+    } catch (e) {
+      error('sanitizeSavedData fallito:', e);
+      return { ok: false, fixed: 0, error: e.message || String(e) };
+    }
+  }
+
+  /**
    * Get username corrente dal localStorage o fallback a 'guest'.
    */
   function getUsername() {
@@ -502,6 +626,7 @@ const PvuStorage = (() => {
     writeSave: writeSave,
     readSave: readSave,
     serializeBigInt: serializeBigInt,
+    sanitizeSavedData: sanitizeSavedData,
     getUsername: getUsername,
     log: log,
     warn: warn,
@@ -709,16 +834,56 @@ const PvuGameBridge = (() => {
   }
 
 /**
+   * SAFETY NET v1.2.1 (anti-corruzione BigInt): normalizza permaMoney a runtime.
+   * Il gioco tratta permaMoney come number in ogni uso (updatePermaMoney →
+   * Math.round, UI, `(permaMoney||0)+d`, confronti). Un BigInt (o la stringa
+   * "123n" prodotta da serializeBigInt) fa:
+   *   - freeze Ω in-sessione: (permaMoney||0)+d → BigInt+Number → TypeError
+   *   - [LOAD ERROR] al riavvio: initSystem restore → Cannot convert a BigInt
+   * Idempotente: se permaMoney è già number non tocca nulla (nessun log di rumore
+   * dal poll 500ms).
+   * @param {object|null} gameData
+   * @returns {object|null}
+   */
+  function sanitizeGameDataRuntime(gameData) {
+    try {
+      if (!gameData || typeof gameData !== 'object' || gameData.__pvu_sanitized) {
+        return gameData;
+      }
+      const v = gameData.permaMoney;
+      if (typeof v === 'bigint') {
+        gameData.permaMoney = Number(v);
+        warn('permaMoney era BigInt → normalizzato a Number (safety net runtime)');
+      } else if (typeof v === 'string') {
+        const m = /^(\d+)n?$/.exec(v.trim());
+        if (m) {
+          gameData.permaMoney = Number(m[1]);
+          warn('permaMoney era stringa ("' + v + '") → normalizzato a Number (safety net runtime)');
+        }
+      }
+      // Marca per evitare re-check inutili nello stesso oggetto (poll 500ms).
+      // Usa defineProperty non-enumerabile per non sporcare falsificazione del save
+      // (JSON.stringify la ignora, ma il gioco la ridefinirebbe comunque in updatePermaMoney).
+      try {
+        Object.defineProperty(gameData, '__pvu_sanitized', { value: true, writable: false, configurable: true, enumerable: false });
+      } catch (e) { /* ignore */ }
+    } catch (e) {
+      warn('sanitizeGameDataRuntime fallito:', e);
+    }
+    return gameData;
+  }
+
+  /**
    * Get game data dal game instance.
    */
   function getGameData() {
     const scene = getBattleScene();
-    if (scene && scene.gameData) return scene.gameData;
+    if (scene && scene.gameData) return sanitizeGameDataRuntime(scene.gameData);
     const game = getGame();
     if (game && game.scene && game.scene.scenes) {
       for (const key in game.scene.scenes) {
         const s = game.scene.scenes[key];
-        if (s && s.gameData) return s.gameData;
+        if (s && s.gameData) return sanitizeGameDataRuntime(s.gameData);
       }
     }
     return null;
@@ -831,7 +996,7 @@ const PvuGameBridge = (() => {
     // 1. Battle scene prima — ha il gameData della run corrente
     // (getBattleScene ha il fallback CanvasPool interno)
     const bs = getBattleScene();
-    if (bs && bs.gameData) return bs.gameData;
+    if (bs && bs.gameData) return sanitizeGameDataRuntime(bs.gameData);
 
     // 2. Solo come ultima spiaggia: game instance → scan scene registrate
     const game = getGame();
@@ -841,7 +1006,7 @@ const PvuGameBridge = (() => {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
         const s = scenes[key];
-        if (s && s.gameData) return s.gameData;
+        if (s && s.gameData) return sanitizeGameDataRuntime(s.gameData);
       }
     }
 
@@ -1367,11 +1532,27 @@ const PvuRollController = (() => {
 
   /**
    * Forza WAIVE_ROLL_FEE_OVERRIDE sul gameData se disponibile.
+   *
+   * NOTA (verificata su pokevoid-bundle.js, Task 4 — nessuna modifica funzionale):
+   * il gioco legge TUTTI i 16 consumatori come `ot.WAIVE_ROLL_FEE_OVERRIDE`, dove
+   * `ot` è un singleton plain-object di modulo creato UNA volta:
+   *   ot = { ...new DefaultOverrides(), ...L4e }          (@1605540)
+   * Non è una static class property, non è esportato, NON è raggiungibile dal
+   * window scope (closure webpack), e non viene MAI scritto a runtime
+   * (0 assignments a `ot.WAIVE_ROLL_FEE_OVERRIDE` nel bundle).
+   * La field d'istanza `this.WAIVE_ROLL_FEE_OVERRIDE = !1` (DefaultOverrides,
+   * @1601620) è scritta una volta sola e non è MAI letta dal gioco.
+   * → Questa scrittura su gameData è un **no-op innocuo**: lasciata invariata
+   *   (conservativo). Il free roll che funziona davvero è l'hook su getRerollCost
+   *   dell'istanza phase (`su`), che replica esattamente il ramo nativo
+   *   `if (ot.WAIVE_ROLL_FEE_OVERRIDE) return { rerollCost: 0, permaRerollCost: 0 }`
+   *   (@17223287) — shape oggetto consumata correttamente ovunque, nessun vettore NaN.
    */
   function setWaiveRollFeeOverride(val) {
     const bridge = window.__pvu.bridge;
     const gameData = bridge.findGameData();
     if (gameData) {
+      // no-op documentato: il gioco non legge mai questo campo (vedi JSDoc sopra)
       gameData.WAIVE_ROLL_FEE_OVERRIDE = val;
       log('WAIVE_ROLL_FEE_OVERRIDE =', val);
       return true;
@@ -1557,6 +1738,16 @@ const PvuMoneyOverride = (() => {
    */
   function setMoney(amount) {
     try {
+      // FIX v1.2.1 (corruzione BigInt): normalizza l'input.
+      // Il gioco tratta permaMoney come number — mai bigint o stringa "123n".
+      // BigInt(amount) qui causava freeze Ω in-sessione ((permaMoney||0)+d → BigInt+number)
+      // e [LOAD ERROR] initSystem failed: Cannot convert a BigInt value to a number al riavvio.
+      if (typeof amount === 'bigint' || typeof amount === 'string') {
+        amount = Number(amount);
+      }
+      if (!Number.isFinite(amount)) {
+        amount = 0;
+      }
       amount = Math.max(0, Math.min(Math.floor(amount), MAX));
       const bridge = window.__pvu.bridge;
       const scene = bridge.getBattleScene();
@@ -1572,8 +1763,23 @@ const PvuMoneyOverride = (() => {
       // gameData.permaMoney (persistente)
       const gameData = bridge.findGameData();
       if (gameData) {
-        gameData.permaMoney = BigInt(amount);
-        log('permaMoney impostato a', amount);
+        // Difensivo: se permaMoney è già bigint/stringa "123n" (save corrotto in memoria),
+        // normalizzalo prima che il gioco lo usi (Math.round/NaN-freeze).
+        if (typeof gameData.permaMoney === 'bigint') {
+          warn('permaMoney era BigInt (' + String(gameData.permaMoney) + ') → normalizzato a Number');
+          gameData.permaMoney = Number(gameData.permaMoney);
+        } else if (typeof gameData.permaMoney === 'string') {
+          const m = /^(\d+)n?$/.exec(gameData.permaMoney.trim());
+          if (m) {
+            warn('permaMoney era stringa ("' + gameData.permaMoney + '") → normalizzato a Number');
+            gameData.permaMoney = Number(m[1]);
+          }
+        }
+
+        // FIX v1.2.1: era BigInt(amount) — corrompeva permaMoney (freeze Ω + load error).
+        // Il gioco tratta permaMoney come number: assegniamo sempre Number.
+        gameData.permaMoney = Number(amount);
+        log('permaMoney impostato a', gameData.permaMoney);
 
         // Refresh UI — cerca updateMoneyText o updateGameInfo
         try {
@@ -1616,7 +1822,16 @@ const PvuMoneyOverride = (() => {
       if (scene && scene.money !== undefined) return Number(scene.money);
 
       const gameData = bridge.findGameData();
-      if (gameData && gameData.permaMoney !== undefined) return Number(gameData.permaMoney);
+      if (gameData && gameData.permaMoney !== undefined) {
+        // FIX v1.2.1: Number("123n") = NaN — gestisci stringa bigint-serializzata.
+        const v = gameData.permaMoney;
+        if (typeof v === 'bigint') return Number(v);
+        if (typeof v === 'string') {
+          const m = /^(\d+)n?$/.exec(v.trim());
+          return m ? Number(m[1]) : Number(v);
+        }
+        return Number(v);
+      }
     } catch(e) {}
     return 0;
   }
@@ -3523,6 +3738,17 @@ window.__pvu.panel = PvuPanel;
   }
 
   log('Avvio PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
+
+  // 0. Sanitizza salvataggi esistenti (prima che il gioco carichi i dati — anti-BigInt)
+  //   Fix v1.2.1: permaMoney serializzato come BigInt/stringa "123n" causava
+  //   [LOAD ERROR] initSystem failed: Cannot convert a BigInt value to a number al riavvio.
+  if (pvu.storage && typeof pvu.storage.sanitizeSavedData === 'function') {
+    try {
+      pvu.storage.sanitizeSavedData();
+    } catch (e) {
+      warn('Sanitizzazione salvataggi fallita:', e);
+    }
+  }
 
   // 1. Inietta stili CSS
   if (pvu.styles) pvu.styles.inject();

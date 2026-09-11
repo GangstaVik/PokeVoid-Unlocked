@@ -209,11 +209,27 @@ const PvuRollController = (() => {
 
   /**
    * Forza WAIVE_ROLL_FEE_OVERRIDE sul gameData se disponibile.
+   *
+   * NOTA (verificata su pokevoid-bundle.js, Task 4 — nessuna modifica funzionale):
+   * il gioco legge TUTTI i 16 consumatori come `ot.WAIVE_ROLL_FEE_OVERRIDE`, dove
+   * `ot` è un singleton plain-object di modulo creato UNA volta:
+   *   ot = { ...new DefaultOverrides(), ...L4e }          (@1605540)
+   * Non è una static class property, non è esportato, NON è raggiungibile dal
+   * window scope (closure webpack), e non viene MAI scritto a runtime
+   * (0 assignments a `ot.WAIVE_ROLL_FEE_OVERRIDE` nel bundle).
+   * La field d'istanza `this.WAIVE_ROLL_FEE_OVERRIDE = !1` (DefaultOverrides,
+   * @1601620) è scritta una volta sola e non è MAI letta dal gioco.
+   * → Questa scrittura su gameData è un **no-op innocuo**: lasciata invariata
+   *   (conservativo). Il free roll che funziona davvero è l'hook su getRerollCost
+   *   dell'istanza phase (`su`), che replica esattamente il ramo nativo
+   *   `if (ot.WAIVE_ROLL_FEE_OVERRIDE) return { rerollCost: 0, permaRerollCost: 0 }`
+   *   (@17223287) — shape oggetto consumata correttamente ovunque, nessun vettore NaN.
    */
   function setWaiveRollFeeOverride(val) {
     const bridge = window.__pvu.bridge;
     const gameData = bridge.findGameData();
     if (gameData) {
+      // no-op documentato: il gioco non legge mai questo campo (vedi JSDoc sopra)
       gameData.WAIVE_ROLL_FEE_OVERRIDE = val;
       log('WAIVE_ROLL_FEE_OVERRIDE =', val);
       return true;

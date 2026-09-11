@@ -141,6 +141,130 @@ const PvuStorage = (() => {
   }
 
   /**
+   * Recursive: normalizza ogni `permaMoney` corrotto dentro un oggetto save.
+   * Il gioco salva permaMoney come number; un BigInt (o la stringa "123n" prodotta
+   * dalla serializzazione usercamp) rompe al load (`[... initSystem failed:
+   * Cannot convert a BigInt value to a number`).
+   * @param {object} obj - nodo corrente (oggetto o array)
+   * @returns {boolean} true se qualcosa è stato modificato
+   */
+  function sanitizePermaMoney(obj) {
+    let changed = false;
+    if (obj === null || typeof obj !== 'object') return false;
+
+    // Primo livello: proprietà "permaMoney" (propria del nodo).
+    if (Object.prototype.hasOwnProperty.call(obj, 'permaMoney')) {
+      const v = obj.permaMoney;
+      if (typeof v === 'string') {
+        const m = /^(\d+)n?$/.exec(v.trim());
+        if (m) {
+          obj.permaMoney = Number(m[1]);
+          changed = true;
+        }
+      } else if (typeof v === 'bigint') {
+        obj.permaMoney = Number(v);
+        changed = true;
+      }
+    }
+
+    // Livello successivo: array e oggetti annidati (walk ricorsiva).
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        if (obj[i] !== null && typeof obj[i] === 'object') {
+          if (sanitizePermaMoney(obj[i])) changed = true;
+        }
+      }
+    } else {
+      for (const key in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const v = obj[key];
+        if (v !== null && typeof v === 'object') {
+          if (sanitizePermaMoney(v)) changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * Sanitizzazione allo start: scansiona TUTTI i save `data_*` nel localStorage e
+   * corregge ogni permaMoney corrotto (stringa "123n" / BigInt) → number.
+   *
+   * - Solo chiavi con prefisso `data_` (i save del gioco), esclusi i nostri backup
+   *   (`data_pvu_backup_*`) e i backup legacy (`data_backup*`).
+   * - NON tocca `settings`, `sessionData*`, `runHistoryData_*` → verificabili il gioco.
+   * - Idempotente: nessun write se non c'è nulla da correggere. Pattern createBackup
+   *   + validatePostWrite su ogni chiave modificata (rollback su mismatch).
+   * @returns {{ ok: boolean, fixed: number, error?: string }}
+   */
+  function sanitizeSavedData() {
+    try {
+      let fixed = 0;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (!k.startsWith('data_')) continue;
+        if (k.startsWith('data_pvu_') || k.startsWith('data_backup')) continue;
+        keys.push(k);
+      }
+
+      for (let ki = 0; ki < keys.length; ki++) {
+        const key = keys[ki];
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (e) {
+          // Save non-JSON: lascialo stare (il gioco lo gestirà).
+          continue;
+        }
+        if (parsed === null || typeof parsed !== 'object') continue;
+
+        if (sanitizePermaMoney(parsed)) {
+          const jsonStr = JSON.stringify(parsed);
+
+          // Usa protocollo standard: backup → write → validate
+          const username = key.substring(5);
+          const backup = createBackup(username);
+          if (!backup.ok) {
+            warn('Backup fallito durante sanitize, chiave saltata:', key, backup.error);
+            continue;
+          }
+
+          try {
+            localStorage.setItem(key, jsonStr);
+            const validation = validatePostWrite(username, jsonStr, backup.key);
+            if (!validation.ok) {
+              error('Validazione sanitize fallita per', key, '— rollback applicato');
+              continue;
+            }
+            fixed++;
+            log('Sanitizzato', key, '(permaMoney corretto)' + (backup.key ? ' | backup: ' + backup.key : ''));
+          } catch (e) {
+            error('Write sanitize fallito per', key, e);
+            // rollback manuale se validatePostWrite non ha potuto agire
+            try {
+              const bk = localStorage.getItem(backup.key);
+              if (bk) localStorage.setItem(key, bk);
+            } catch (e2) { /* ignore */ }
+          }
+        }
+      }
+
+      if (fixed > 0) {
+        log('Sanitizzazione completata:', fixed, 'chiavi corrette');
+      }
+      return { ok: true, fixed: fixed };
+    } catch (e) {
+      error('sanitizeSavedData fallito:', e);
+      return { ok: false, fixed: 0, error: e.message || String(e) };
+    }
+  }
+
+  /**
    * Get username corrente dal localStorage o fallback a 'guest'.
    */
   function getUsername() {
@@ -168,6 +292,7 @@ const PvuStorage = (() => {
     writeSave: writeSave,
     readSave: readSave,
     serializeBigInt: serializeBigInt,
+    sanitizeSavedData: sanitizeSavedData,
     getUsername: getUsername,
     log: log,
     warn: warn,

@@ -17,6 +17,16 @@ const PvuMoneyOverride = (() => {
    */
   function setMoney(amount) {
     try {
+      // FIX v1.2.1 (corruzione BigInt): normalizza l'input.
+      // Il gioco tratta permaMoney come number — mai bigint o stringa "123n".
+      // BigInt(amount) qui causava freeze Ω in-sessione ((permaMoney||0)+d → BigInt+number)
+      // e [LOAD ERROR] initSystem failed: Cannot convert a BigInt value to a number al riavvio.
+      if (typeof amount === 'bigint' || typeof amount === 'string') {
+        amount = Number(amount);
+      }
+      if (!Number.isFinite(amount)) {
+        amount = 0;
+      }
       amount = Math.max(0, Math.min(Math.floor(amount), MAX));
       const bridge = window.__pvu.bridge;
       const scene = bridge.getBattleScene();
@@ -32,8 +42,23 @@ const PvuMoneyOverride = (() => {
       // gameData.permaMoney (persistente)
       const gameData = bridge.findGameData();
       if (gameData) {
-        gameData.permaMoney = BigInt(amount);
-        log('permaMoney impostato a', amount);
+        // Difensivo: se permaMoney è già bigint/stringa "123n" (save corrotto in memoria),
+        // normalizzalo prima che il gioco lo usi (Math.round/NaN-freeze).
+        if (typeof gameData.permaMoney === 'bigint') {
+          warn('permaMoney era BigInt (' + String(gameData.permaMoney) + ') → normalizzato a Number');
+          gameData.permaMoney = Number(gameData.permaMoney);
+        } else if (typeof gameData.permaMoney === 'string') {
+          const m = /^(\d+)n?$/.exec(gameData.permaMoney.trim());
+          if (m) {
+            warn('permaMoney era stringa ("' + gameData.permaMoney + '") → normalizzato a Number');
+            gameData.permaMoney = Number(m[1]);
+          }
+        }
+
+        // FIX v1.2.1: era BigInt(amount) — corrompeva permaMoney (freeze Ω + load error).
+        // Il gioco tratta permaMoney come number: assegniamo sempre Number.
+        gameData.permaMoney = Number(amount);
+        log('permaMoney impostato a', gameData.permaMoney);
 
         // Refresh UI — cerca updateMoneyText o updateGameInfo
         try {
@@ -76,7 +101,16 @@ const PvuMoneyOverride = (() => {
       if (scene && scene.money !== undefined) return Number(scene.money);
 
       const gameData = bridge.findGameData();
-      if (gameData && gameData.permaMoney !== undefined) return Number(gameData.permaMoney);
+      if (gameData && gameData.permaMoney !== undefined) {
+        // FIX v1.2.1: Number("123n") = NaN — gestisci stringa bigint-serializzata.
+        const v = gameData.permaMoney;
+        if (typeof v === 'bigint') return Number(v);
+        if (typeof v === 'string') {
+          const m = /^(\d+)n?$/.exec(v.trim());
+          return m ? Number(m[1]) : Number(v);
+        }
+        return Number(v);
+      }
     } catch(e) {}
     return 0;
   }

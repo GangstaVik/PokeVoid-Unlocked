@@ -23,6 +23,17 @@
 
   log('Avvio PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
 
+  // 0. Sanitizza salvataggi esistenti (prima che il gioco carichi i dati — anti-BigInt)
+  //   Fix v1.2.1: permaMoney serializzato come BigInt/stringa "123n" causava
+  //   [LOAD ERROR] initSystem failed: Cannot convert a BigInt value to a number al riavvio.
+  if (pvu.storage && typeof pvu.storage.sanitizeSavedData === 'function') {
+    try {
+      pvu.storage.sanitizeSavedData();
+    } catch (e) {
+      warn('Sanitizzazione salvataggi fallita:', e);
+    }
+  }
+
   // 1. Inietta stili CSS
   if (pvu.styles) pvu.styles.inject();
 
