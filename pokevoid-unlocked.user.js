@@ -1483,19 +1483,58 @@ const PvuRollController = (() => {
     // --- getModifierTypeOptions: item count extra + luck pool (istanza su) ---
     if (!phaseObj._pvu_optionsHooked) {
       const origOptions = phaseObj.getModifierTypeOptions;
+
+      // T1.1: cattura la sorgente del nativo (verifica semantica del parametro
+      // count) — registrata una sola volta sul primo patch, snippete nel report.
+      if (!window.__pvu._rollOptionsNativeSrc) {
+        try {
+          window.__pvu._rollOptionsNativeSrc = origOptions.toString();
+        } catch (e) {
+          window.__pvu._rollOptionsNativeSrc = null;
+        }
+        if (window.__pvu._rollOptionsNativeSrc) {
+          const src = window.__pvu._rollOptionsNativeSrc;
+          log('Native getModifierTypeOptions sorgente catturata:', src.slice(0, 240) + ' ... ' + src.slice(-160));
+        }
+      }
+
       phaseObj.getModifierTypeOptions = function() {
         const scene = this && this.scene ? this.scene : null;
-        let count = arguments.length > 0 && typeof arguments[0] === 'number' ? arguments[0] : undefined;
+        const requestedCount = arguments.length > 0 && typeof arguments[0] === 'number' ? arguments[0] : undefined;
 
-        // Item count extra: aumenta il numero di opzioni nel pool
-        if (state.itemCountExtra > 0 && count !== undefined) {
-          count = count + state.itemCountExtra;
+        // Item count extra: aumenta il numero di opzioni nel pool.
+        // T1: il nativo (su @17225514, j0 shop @17410811) può restituire MENO
+        // elementi del richiesto quando il pool filtrato è saturo (ramo con
+        // modificatori disabilitati / filtro collected + top-up). Prima si sonda
+        // il nativo con il conteggio NOMINALE per misurare la lunghezza reale;
+        // se il sondaggio è già corto => pool saturo: clamp a
+        // min(nominale + extra, lunghezza sondata) invece di forzare +extra a
+        // vuoto (causa delle scelte duplicate / pool svuotato).
+        let poolLength = null;
+        if (state.itemCountExtra > 0 && requestedCount !== undefined) {
+          try {
+            const probe = origOptions.call(this, requestedCount);
+            if (probe && typeof probe.length === 'number') {
+              poolLength = probe.length;
+            }
+          } catch (e) {
+            warn('getModifierTypeOptions probe fallita, nessun clamp applicato:', e);
+            poolLength = null;
+          }
+        }
+        let effectiveCount = requestedCount;
+        if (state.itemCountExtra > 0 && requestedCount !== undefined) {
+          effectiveCount = requestedCount + state.itemCountExtra;
+          if (poolLength !== null && poolLength < requestedCount) {
+            effectiveCount = Math.min(effectiveCount, poolLength);
+            log('Clamp T1: pool saturo (sonda ' + poolLength + ' < nominale ' + requestedCount + ') => ' + effectiveCount + ' opzioni');
+          }
         }
 
         // Luck lock: forza i tier del pool forzando lockModifierTiers SOLO durante la chiamata
         let tierPatch = null;
         if (state.luckLock) {
-          const tiers = luckTierPool(state.luckValue, count);
+          const tiers = luckTierPool(state.luckValue, effectiveCount);
           if (tiers && scene) {
             tierPatch = {
               oldLock: scene.lockModifierTiers,
@@ -1507,7 +1546,7 @@ const PvuRollController = (() => {
         }
 
         try {
-          return origOptions.call(this, count);
+          return origOptions.call(this, effectiveCount);
         } finally {
           // Ripristino sempre (anche su errore) — nessun side effect residuo
           if (tierPatch && scene) {
@@ -1518,7 +1557,7 @@ const PvuRollController = (() => {
       };
       phaseObj._pvu_optionsHooked = true;
       patched = true;
-      log('getModifierTypeOptions patched su phase instance (itemcount + luck pool)');
+      log('getModifierTypeOptions patched su phase instance (itemcount + luck pool + clamp T1)');
     }
 
     // Hook wild luck una volta sola (istanza arena long-lived)
