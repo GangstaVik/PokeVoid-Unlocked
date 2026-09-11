@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.1.1
+// @version      1.2.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
@@ -17,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.1.1',
+  VERSION: '1.2.0',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
@@ -1962,6 +1962,114 @@ window.__pvu = window.__pvu || {};
 window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
 
 
+// --- src/voucher-editor.js ---
+const PvuVoucherEditor = (() => {
+  const LOG_PREFIX = '[PvuVoucherEditor]';
+  const TYPES = [0, 1, 2, 3];
+  const LABELS = ['REGULAR', 'PLUS', 'PREMIUM', 'GOLDEN'];
+  const VOUCHER_EMOJI = ['🎫', '🎟️', '⭐', '👑'];
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  function getGameData() {
+    const bridge = window.__pvu.bridge;
+    if (bridge) return bridge.findGameData();
+    return null;
+  }
+
+  function getVoucherCounts() {
+    try {
+      const gd = getGameData();
+      if (!gd) return null;
+      if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+        gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      }
+      return {
+        REGULAR: gd.voucherCounts[0] || 0,
+        PLUS: gd.voucherCounts[1] || 0,
+        PREMIUM: gd.voucherCounts[2] || 0,
+        GOLDEN: gd.voucherCounts[3] || 0,
+      };
+    } catch (e) {
+      log('getVoucherCounts error:', e);
+      return null;
+    }
+  }
+
+  function setVoucherCount(typeIndex, value) {
+    try {
+      if (typeIndex < 0 || typeIndex > 3) {
+        return { ok: false, error: 'Tipo non valido' };
+      }
+      const numVal = Math.max(0, Math.floor(Number(value)));
+      if (isNaN(numVal)) {
+        return { ok: false, error: 'Valore non valido' };
+      }
+      const gd = getGameData();
+      if (!gd) {
+        return { ok: false, error: 'gameData non disponibile' };
+      }
+      if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+        gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      }
+      gd.voucherCounts[typeIndex] = numVal;
+      log('setVoucherCount:', LABELS[typeIndex], '=', numVal);
+      return { ok: true };
+    } catch (e) {
+      log('setVoucherCount error:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  function setAllVoucherCounts(countsObj) {
+    try {
+      const gd = getGameData();
+      if (!gd) {
+        return { ok: false, error: 'gameData non disponibile' };
+      }
+      if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+        gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      }
+      if (countsObj.REGULAR !== undefined) {
+        const v = Math.max(0, Math.floor(Number(countsObj.REGULAR)));
+        if (!isNaN(v)) gd.voucherCounts[0] = v;
+      }
+      if (countsObj.PLUS !== undefined) {
+        const v = Math.max(0, Math.floor(Number(countsObj.PLUS)));
+        if (!isNaN(v)) gd.voucherCounts[1] = v;
+      }
+      if (countsObj.PREMIUM !== undefined) {
+        const v = Math.max(0, Math.floor(Number(countsObj.PREMIUM)));
+        if (!isNaN(v)) gd.voucherCounts[2] = v;
+      }
+      if (countsObj.GOLDEN !== undefined) {
+        const v = Math.max(0, Math.floor(Number(countsObj.GOLDEN)));
+        if (!isNaN(v)) gd.voucherCounts[3] = v;
+      }
+      log('setAllVoucherCounts:', JSON.stringify(countsObj));
+      return { ok: true };
+    } catch (e) {
+      log('setAllVoucherCounts error:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  return {
+    TYPES: TYPES,
+    LABELS: LABELS,
+    VOUCHER_EMOJI: VOUCHER_EMOJI,
+    getVoucherCounts: getVoucherCounts,
+    setVoucherCount: setVoucherCount,
+    setAllVoucherCounts: setAllVoucherCounts,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.voucherEditor = PvuVoucherEditor;
+
+
 // --- src/ui/styles.js ---
 const PvuStyles = (() => {
   const LOG_PREFIX = '[PvuStyles]';
@@ -2687,7 +2795,7 @@ window.__pvu.rollScreen = PvuRollScreen;
 const PvuSkillScreen = (() => {
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
-  let refreshTimer = null;
+  let registeredPhaseFn = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -2753,6 +2861,7 @@ const PvuSkillScreen = (() => {
       if (result) {
         spInput.style.borderColor = '#4caf50';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1000);
+        refreshUI();
       } else {
         spInput.style.borderColor = '#f44336';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1500);
@@ -2803,12 +2912,18 @@ const PvuSkillScreen = (() => {
 
     parentEl.appendChild(containerEl);
 
-    refreshTimer = setInterval(refreshUI, 3000);
+    // Event-driven refresh via phase observer (una sola registrazione)
+    if (!registeredPhaseFn && window.__pvu.phaseObserver) {
+      registeredPhaseFn = function() { if (containerEl) refreshUI(); };
+      window.__pvu.phaseObserver.onPhasePush(registeredPhaseFn);
+    }
+
     refreshUI();
   }
 
   function refreshUI() {
     if (!containerEl) return;
+    if (!document.body.contains(containerEl)) return;
     const editor = window.__pvu.skillTreeEditor;
     const bridge = window.__pvu.bridge;
 
@@ -2891,7 +3006,7 @@ const PvuSkillScreen = (() => {
             const result = editor.unlockSkill(skill.skillId, skill.category);
             if (result.ok) {
               item.style.borderColor = '#4caf50';
-              setTimeout(function() { refreshUI(); }, 500);
+              refreshUI();
             } else {
               item.style.borderColor = '#f44336';
               setTimeout(function() { item.style.borderColor = '#e94560'; }, 1500);
@@ -2916,8 +3031,6 @@ const PvuSkillScreen = (() => {
   }
 
   function destroy() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
   }
@@ -2933,6 +3046,169 @@ window.__pvu = window.__pvu || {};
 window.__pvu.skillScreen = PvuSkillScreen;
 
 
+// --- src/ui/voucher-screen.js ---
+const PvuVoucherScreen = (() => {
+  const LOG_PREFIX = '[PvuVoucherScreen]';
+  let containerEl = null;
+  let statusEl = null;
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  function render(parentEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = 'pvu-voucher-screen';
+
+    const section = document.createElement('div');
+    section.className = 'pvu-section';
+
+    const title = document.createElement('div');
+    title.className = 'pvu-section-title';
+    title.textContent = '🎟️ Voucher Editor';
+    section.appendChild(title);
+
+    const info = document.createElement('div');
+    info.className = 'pvu-info';
+    info.textContent = 'Modifica i voucher. Il gioco salva automaticamente.';
+    section.appendChild(info);
+
+    const editor = window.__pvu.voucherEditor;
+    const labels = editor.LABELS;
+    const emojis = editor.VOUCHER_EMOJI;
+    const rows = [];
+
+    for (let t = 0; t < labels.length; t++) {
+      (function(typeIdx) {
+        const row = document.createElement('div');
+        row.className = 'pvu-input-row';
+
+        const label = document.createElement('span');
+        label.style.minWidth = '110px';
+        label.style.display = 'inline-block';
+        label.textContent = emojis[typeIdx] + ' ' + labels[typeIdx];
+        row.appendChild(label);
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'pvu-input';
+        input.style.width = '90px';
+        input.min = '0';
+        input.value = '0';
+        row.appendChild(input);
+
+        // Quick buttons +1, +10, +100
+        const deltas = [1, 10, 100];
+        for (let d = 0; d < deltas.length; d++) {
+          (function(delta) {
+            const btn = document.createElement('button');
+            btn.className = 'pvu-btn pvu-btn-sm';
+            btn.textContent = '+' + delta;
+            btn.addEventListener('click', function() {
+              const cur = Math.max(0, parseInt(input.value, 10) || 0);
+              input.value = cur + delta;
+              applyVoucher(typeIdx, input);
+            });
+            row.appendChild(btn);
+          })(deltas[d]);
+        }
+
+        // Apply button per tipo
+        const applyBtn = document.createElement('button');
+        applyBtn.className = 'pvu-btn';
+        applyBtn.textContent = 'Apply';
+        applyBtn.addEventListener('click', function() {
+          applyVoucher(typeIdx, input);
+        });
+        row.appendChild(applyBtn);
+
+        section.appendChild(row);
+
+        rows.push({ type: typeIdx, inputEl: input });
+      })(t);
+    }
+
+    // Apply All button
+    const allRow = document.createElement('div');
+    allRow.className = 'pvu-input-row';
+    allRow.style.marginTop = '8px';
+
+    const applyAllBtn = document.createElement('button');
+    applyAllBtn.className = 'pvu-btn';
+    applyAllBtn.textContent = 'Apply All';
+    applyAllBtn.addEventListener('click', function() {
+      const counts = {};
+      for (let i = 0; i < rows.length; i++) {
+        counts[labels[rows[i].type]] = Math.max(0, parseInt(rows[i].inputEl.value, 10) || 0);
+      }
+      const result = editor.setAllVoucherCounts(counts);
+      showStatus(result.ok ? '✓ Tutti i voucher aggiornati' : '✗ ' + (result.error || 'Errore'), result.ok);
+    });
+    allRow.appendChild(applyAllBtn);
+    section.appendChild(allRow);
+
+    // Status
+    statusEl = document.createElement('div');
+    statusEl.className = 'pvu-status';
+    statusEl.textContent = 'In attesa...';
+    section.appendChild(statusEl);
+
+    containerEl.appendChild(section);
+    parentEl.appendChild(containerEl);
+
+    refreshUI();
+  }
+
+  function applyVoucher(typeIdx, inputEl) {
+    const val = parseInt(inputEl.value, 10);
+    const editor = window.__pvu.voucherEditor;
+    const result = editor.setVoucherCount(typeIdx, val);
+    showStatus(result.ok ? '✓ ' + editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : '✗ ' + (result.error || 'Errore'), result.ok);
+  }
+
+  function showStatus(msg, ok) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = ok ? 'pvu-status ok' : 'pvu-status err';
+  }
+
+  function refreshUI() {
+    if (!containerEl) return;
+    if (!document.body.contains(containerEl)) return;
+
+    const editor = window.__pvu.voucherEditor;
+    const counts = editor.getVoucherCounts();
+    if (!counts) {
+      showStatus('gameData non disponibile', false);
+      return;
+    }
+
+    const labels = editor.LABELS;
+    for (let i = 0; i < containerEl.querySelectorAll('.pvu-input').length; i++) {
+      const input = containerEl.querySelectorAll('.pvu-input')[i];
+      if (i < labels.length && input && document.activeElement !== input) {
+        input.value = counts[labels[i]] || 0;
+      }
+    }
+  }
+
+  function destroy() {
+    if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
+    containerEl = null;
+    statusEl = null;
+  }
+
+  return {
+    render: render,
+    refreshUI: refreshUI,
+    destroy: destroy,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.voucherScreen = PvuVoucherScreen;
+
+
 // --- src/ui/panel.js ---
 const PvuPanel = (() => {
   const LOG_PREFIX = '[PvuPanel]';
@@ -2943,6 +3219,7 @@ const PvuPanel = (() => {
   // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
   // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
   let moneyTimer = null;
+  let activeScreen = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -2989,10 +3266,12 @@ const PvuPanel = (() => {
     const tabMoney = createTab('💰 Money', 'money');
     const tabRoll = createTab('🎲 Roll', 'roll');
     const tabSkill = createTab('🌳 Skill', 'skill');
+    const tabVoucher = createTab('🎟️ Voucher', 'voucher');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
     tabs.appendChild(tabSkill);
+    tabs.appendChild(tabVoucher);
     panelEl.appendChild(tabs);
 
     // Tab content area
@@ -3050,6 +3329,12 @@ const PvuPanel = (() => {
     const content = document.getElementById('pvu-tab-content');
     if (!content) return;
 
+    // Distruggi la schermata precedente (evita leak di listener/timer su cambio tab)
+    if (activeScreen && activeScreen.destroy) {
+      try { activeScreen.destroy(); } catch (e) { /* ignore */ }
+    }
+    activeScreen = null;
+
     // Pulisci contenuto
     content.innerHTML = '';
 
@@ -3059,9 +3344,15 @@ const PvuPanel = (() => {
         break;
       case 'roll':
         window.__pvu.rollScreen.render(content);
+        activeScreen = window.__pvu.rollScreen;
         break;
       case 'skill':
         window.__pvu.skillScreen.render(content);
+        activeScreen = window.__pvu.skillScreen;
+        break;
+      case 'voucher':
+        window.__pvu.voucherScreen.render(content);
+        activeScreen = window.__pvu.voucherScreen;
         break;
     }
   }

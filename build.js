@@ -16,10 +16,12 @@ const FILES = [
   'src/roll-controller.js',
   'src/money-override.js',
   'src/skill-tree-editor.js',
+  'src/voucher-editor.js',
   'src/ui/styles.js',
   'src/ui/floating-btn.js',
   'src/ui/roll-screen.js',
   'src/ui/skill-screen.js',
+  'src/ui/voucher-screen.js',
   'src/ui/panel.js',
   'src/main.js',
 ];
@@ -28,7 +30,7 @@ const FILES = [
 const HEADER = `// ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.1.1
+// @version      1.2.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*

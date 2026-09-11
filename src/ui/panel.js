@@ -8,6 +8,7 @@ const PvuPanel = (() => {
   // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
   // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
   let moneyTimer = null;
+  let activeScreen = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -54,10 +55,12 @@ const PvuPanel = (() => {
     const tabMoney = createTab('💰 Money', 'money');
     const tabRoll = createTab('🎲 Roll', 'roll');
     const tabSkill = createTab('🌳 Skill', 'skill');
+    const tabVoucher = createTab('🎟️ Voucher', 'voucher');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
     tabs.appendChild(tabSkill);
+    tabs.appendChild(tabVoucher);
     panelEl.appendChild(tabs);
 
     // Tab content area
@@ -115,6 +118,12 @@ const PvuPanel = (() => {
     const content = document.getElementById('pvu-tab-content');
     if (!content) return;
 
+    // Distruggi la schermata precedente (evita leak di listener/timer su cambio tab)
+    if (activeScreen && activeScreen.destroy) {
+      try { activeScreen.destroy(); } catch (e) { /* ignore */ }
+    }
+    activeScreen = null;
+
     // Pulisci contenuto
     content.innerHTML = '';
 
@@ -124,9 +133,15 @@ const PvuPanel = (() => {
         break;
       case 'roll':
         window.__pvu.rollScreen.render(content);
+        activeScreen = window.__pvu.rollScreen;
         break;
       case 'skill':
         window.__pvu.skillScreen.render(content);
+        activeScreen = window.__pvu.skillScreen;
+        break;
+      case 'voucher':
+        window.__pvu.voucherScreen.render(content);
+        activeScreen = window.__pvu.voucherScreen;
         break;
     }
   }

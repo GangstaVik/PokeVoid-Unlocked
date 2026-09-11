@@ -3,7 +3,7 @@
 const PvuSkillScreen = (() => {
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
-  let refreshTimer = null;
+  let registeredPhaseFn = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -69,6 +69,7 @@ const PvuSkillScreen = (() => {
       if (result) {
         spInput.style.borderColor = '#4caf50';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1000);
+        refreshUI();
       } else {
         spInput.style.borderColor = '#f44336';
         setTimeout(function() { spInput.style.borderColor = ''; }, 1500);
@@ -119,12 +120,18 @@ const PvuSkillScreen = (() => {
 
     parentEl.appendChild(containerEl);
 
-    refreshTimer = setInterval(refreshUI, 3000);
+    // Event-driven refresh via phase observer (una sola registrazione)
+    if (!registeredPhaseFn && window.__pvu.phaseObserver) {
+      registeredPhaseFn = function() { if (containerEl) refreshUI(); };
+      window.__pvu.phaseObserver.onPhasePush(registeredPhaseFn);
+    }
+
     refreshUI();
   }
 
   function refreshUI() {
     if (!containerEl) return;
+    if (!document.body.contains(containerEl)) return;
     const editor = window.__pvu.skillTreeEditor;
     const bridge = window.__pvu.bridge;
 
@@ -207,7 +214,7 @@ const PvuSkillScreen = (() => {
             const result = editor.unlockSkill(skill.skillId, skill.category);
             if (result.ok) {
               item.style.borderColor = '#4caf50';
-              setTimeout(function() { refreshUI(); }, 500);
+              refreshUI();
             } else {
               item.style.borderColor = '#f44336';
               setTimeout(function() { item.style.borderColor = '#e94560'; }, 1500);
@@ -232,8 +239,6 @@ const PvuSkillScreen = (() => {
   }
 
   function destroy() {
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
   }
