@@ -107,7 +107,23 @@
       if (applied) {
         log('Roll hooks applicati con successo');
       } else {
-        warn('Alcuni roll hooks non applicati (in attesa phase push/unshift)');
+        // FIX v1.4 (T2): qui un warn immediato era un falso positivo sistematico —
+        // applyHooks() registra solo gli interceptor, hooksApplied diventa TRUE
+        // solo alla prima push/unshift di una phase su. Il vero segnale di
+        // successo è il log 'Hooks applicati con successo (getRerollCost patched)'
+        // in roll-controller.js. Ora: info immediata + UN SOLO warn ritardato
+        // (60s) che scatta solo se gli hooks non risultano ancora applicati.
+        log('Roll hooks in attesa di una phase (push/unshift) — informativo, non errore');
+        setTimeout(function() {
+          try {
+            const st = pvu.rollController.getState();
+            if (!st.hooksApplied) {
+              warn('Roll hooks NON applicati dopo 60s (nessuna phase patchata) — verifica la compatibilita con la versione del gioco');
+            }
+          } catch (e) {
+            warn('Verifica roll hooks a 60s fallita:', e);
+          }
+        }, 60000);
       }
     }
 
