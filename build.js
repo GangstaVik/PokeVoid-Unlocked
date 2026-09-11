@@ -14,6 +14,8 @@ const FILES = [
   'src/game-bridge.js',
   'src/phase-observer.js',
   'src/roll-controller.js',
+  'src/encounter-override.js',
+  'src/capture-override.js',
   'src/money-override.js',
   'src/skill-tree-editor.js',
   'src/voucher-editor.js',
@@ -22,6 +24,7 @@ const FILES = [
   'src/ui/roll-screen.js',
   'src/ui/skill-screen.js',
   'src/ui/voucher-screen.js',
+  'src/ui/battle-screen.js',
   'src/ui/panel.js',
   'src/main.js',
 ];
@@ -30,7 +33,7 @@ const FILES = [
 const HEADER = `// ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.2.1
+// @version      1.3.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
