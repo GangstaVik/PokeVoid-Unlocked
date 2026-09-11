@@ -1,0 +1,1866 @@
+# Copilot CLI Session
+
+> [!NOTE]
+> - **Session ID:** `5b3c6afd-30df-49cc-8e1d-1e8ea6aca281`  
+> - **Started:** 9/11/2026, 7:23:01 PM  
+> - **Duration:** 48s  
+> - **Exported:** 9/11/2026, 7:23:49 PM  
+
+---
+
+<sub>1s</sub>
+
+### User
+
+# Docs Maintainer
+
+You are the documentation maintainer of the PokeVoid-Unlocked repository.
+
+## Context
+
+PokeVoid-Unlocked is a userscript that unlocks premium features of the browser version of PokeVoid (pokevoid.com). The repository is public on GitHub. The documentation must be professional, in English, and always coherent.
+
+## Your task
+
+1. Open the current documentation: `README.md`, `CHANGELOG.md`, `docs/COMPATIBILITY.md`, `docs/CONTRIBUTING.md`. Read them fully before editing.
+2. Keep the documentation truthful and consistent: badges, release version, game version, dates, commit references.
+3. Keep `CHANGELOG.md` sorted — newest release on top, below the `## [Unreleased]` heading, which always carries the `<!-- auto-filled by CI -->` placeholder.
+4. Do not modify the license and do not change the copyright holder.
+5. Do not touch the code: `src/**`, `build.js`, `pokevoid-unlocked.user.js`, `.github/workflows/**`.
+6. Edit the documentation files directly with your write tool. Do not stage or commit anything — the pipeline handles that.
+7. When finished, summarize what you changed in under 10 bullet points at the end of your reply.
+
+---
+
+<sub>5s</sub>
+
+### Copilot
+
+I’ll review all requested documentation together with repository history and the current module list, then make only documentation changes and verify consistency.
+
+---
+
+<sub>5s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md
+
+<details>
+<summary>59 lines</summary>
+
+````
+# PokeVoid-Unlocked
+
+[![Release](https://img.shields.io/badge/Release-v1.3.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.3.0)
+[![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+A free, open-source userscript that unlocks extra features for the **browser version** of PokeVoid.
+
+## Features
+
+| Feature | Description |
+| --- | --- |
+| ✨ Always Shiny | Force shiny encounters. Bosses, rivals and legendaries are deliberately bypassed. |
+| 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |
+| 🎲 Roll Controller | 3 honest toggles operating on real roll values (no cosmetic probabilities), with real itemcount scaling. |
+| 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |
+| 💰 Money Override | Set the in-game currency value. BigInt-safe. |
+| 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |
+| ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
+
+> UI and utility modules that back these features are listed in [Structure](#structure).
+
+## How to use
+
+1. Install a userscript manager (**Tampermonkey** or **Violentmonkey**).
+2. Download [`pokevoid-unlocked.user.js`](pokevoid-unlocked.user.js) from this repository (raw URL) or copy-paste its content into a new userscript.
+3. Confirm the installation in the userscript manager.
+4. Open pokevoid.com — press **`Ctrl+Shift+P`** (`src/main.js:147`) or click the **⚡ floating button** in the bottom-right corner (`src/ui/floating-btn.js`) to open or close the panel.
+
+> `pokevoid-unlocked.user.js` is generated from `src/` by `node build.js` (bundled, dependency-free) and is committed intentionally.
+
+## Structure
+
+```
+src/
+├── main.js                    — entry point, panel toggle (Ctrl+Shift+P)
+├── encounter-override.js      — Always Shiny
+├── capture-override.js        — Catch Any (L2 wrapper + L1 fallback)
+├── roll-controller.js         — Roll Controller (3 toggles + itemcount)
+├── skill-tree-editor.js       — Skill Tree Editor
+├── money-override.js          — Money Override (BigInt-safe)
+├── voucher-editor.js          — Voucher Editor
+├── game-bridge.js             — game API bridge
+├── phase-observer.js          — battle phase hooks
+├── ui/
+│   ├── floating-btn.js        — ⚡ floating action button
+│   ├── panel.js               — panel shell
+│   ├── battle-screen.js       — battle tab toggles
+│   ├── roll-screen.js         — roll controls UI
+│   ├── skill-screen.js        — skill editor UI
+│   ├── voucher-screen.js      — voucher editor UI
+│   └── styles.js              — UI styling
+├── utils/
+│   ├── config.js              — configuration
+│   ├── helpers.js             — shared helpers
+│   └── storage.js             — settings persistence
+build.js                        — build script (no dependencies)
+```
+
+Key entry points and modules by path: `src/ui/floating-btn.js`, `src/game-bridge.js`, `src/phase-observer.js`, `src/utils/storage.js` (full structure above).
+
+## Compatibility
+
+See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for tested browsers and game builds.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for build steps and automation notes.
+
+## Credits
+
+This project is based on **[JsPoRoMod](https://github.com/PokeRogueMOD/JsPoRoMod)**.
+
+## License
+
+[MIT](LICENSE) © 2026 GangstaVik
+````
+
+</details>
+
+
+---
+
+<sub>5s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md
+
+<details>
+<summary>42 lines</summary>
+
+```
+# Changelog
+
+## [Unreleased]
+<!-- auto-filled by CI -->
+
+All notable changes to this project are documented in this file.
+
+## [1.3.0] - 2026-09-11
+### Added
+- feat: version bump + build order (d6f80bc)
+- feat: settings persist helpers for toggles (884d768)
+- feat: always-shiny with force bypass for boss/rival/legendary (03b2e4f)
+- feat: catch-any with L2 wrapper + L1 fallback (5cc8131)
+- feat: battle tab with shiny/capture toggles + wiring (6e8f3e5)
+
+### Docs
+- docs: feature table + v1.3.0 build (12841bc)
+
+## [1.2.1] - 2026-09-11
+### Fixed
+- fix: permaMoney BigInt corruption (omega freeze + load error) (087a8e4)
+
+## [1.2.0] - 2026-09-11
+### Added
+- feat: event-driven skill refresh + voucher editor (a53b798)
+
+## [1.1.1] - 2026-09-11
+### Fixed
+- fix: champion hook resolved from scene (findGameData/getGame self-heal), conditional stop poll (8b1d23a)
+
+## [1.1.0] - 2026-09-10
+### Fixed
+- fix: CanvasPool path, AOB roll hooks, dedup inj, money fmt, lockedSkills guard (7f61f8f)
+- fix: toggle desync, skill points per-run, luck lock (3 bug fixes) (0048640)
+- fix: remove dead toggles, robust luck pool scaling (anti-riwrap), fix battle lag, champion run hook, cache (347baa1)
+
+### Changed
+- style: readable font (system-ui/Segoe UI/Roboto) + UI panel sizing (901cb6a)
+
+## [1.0.0] - 2026-09-10
+### Added
+- feat: complete MVP — roll controller (3 honest toggles + itemcount), skill editor, money override (fa9db79)
+
+### Docs
+- docs: design v2 (Poseidon review fixes) (bd9e024)
+- chore: scaffold PokeVoid-Unlocked (header v2, structure, RE report) (238814b)
+
+[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.0.0
+```
+
+</details>
+
+
+---
+
+<sub>5s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/docs/COMPATIBILITY.md.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/docs/COMPATIBILITY.md
+
+<details>
+<summary>12 lines</summary>
+
+```
+# Compatibility
+
+PokeVoid-Unlocked is tested against the following environment.
+
+| Component | Version | Notes |
+| --- | --- | --- |
+| Game | PokeVoid — pokevoid.com (browser build) | Build v3.1.8 (bundle `index-BA2n6IsS.js`, ~25.7 MB) |
+| Browser | Chrome / Firefox / Edge (latest) | Chromium-based browsers recommended |
+| Userscript manager | Tampermonkey / Violentmonkey | Latest stable release |
+| Node.js (build only) | 22 LTS | Run `node build.js`; no dependencies, no `package.json` |
+
+## Notes
+
+- The userscript targets the **browser** version of the game. Downloadable builds are not supported.
+- If the game ships a new bundle, the userscript may stop matching until selectors/hooks are updated. Open an issue in that case.
+- `pokevoid-unlocked.user.js` is generated from `src/` by `node build.js` (bundled, dependency-free) and is committed intentionally. Rebuild verification: `node build.js` must produce a zero-diff file.
+```
+
+</details>
+
+
+---
+
+<sub>5s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/docs/CONTRIBUTING.md.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/docs/CONTRIBUTING.md
+
+<details>
+<summary>35 lines</summary>
+
+````
+# Contributing
+
+## Requirements
+
+- Node.js 22 LTS
+- A GitHub account (Pull Requests only)
+
+## Build
+
+The build has **no dependencies** — there is no `package.json` and no `npm install` step:
+
+```bash
+node build.js
+```
+
+`pokevoid-unlocked.user.js` is generated from `src/` (bundled, dependency-free). Verify the build output is deterministic:
+
+```bash
+node build.js
+git diff --stat -- pokevoid-unlocked.user.js   # expected: empty
+```
+
+## Automation notes
+
+The repository uses two GitHub Actions workflows to keep the documentation fresh:
+
+1. **docs-automation.yml** — runs the GitHub Copilot CLI on `.github/prompts/docs-maintainer.prompt.md` (scheduled + manual dispatch):
+   - Units in scope: `README.md`, `CHANGELOG.md`, `LICENSE`, `docs/**`, `.github/copilot-instructions.md`, `.github/prompts/**`
+   - Protected paths are force-reverted after every run: `src/`, `build.js`, `pokevoid-unlocked.user.js`, `.github/workflows/**`
+   - Changes land on a feature branch and are proposed via Pull Request; `master` is never written directly.
+2. **update-changelog.yml** — on tag push `v*`:
+   - If the version heading already exists, or the `[Unreleased]` section is empty, the workflow skips gracefully (no PR).
+   - The `## [Unreleased]` heading and its `<!-- auto-filled by CI -->` placeholder are re-affirmed at the top of `CHANGELOG.md` after every run.
+
+## Notes for maintainers
+
+- The game bundle ships with **mangling disabled**, so `constructor.name` stays introspectable — useful when the game updates and selectors/hooks need to be re-anchored.
+- When the game ships a new build, check `docs/COMPATIBILITY.md` and the feature table in `README.md` for drift.
+
+## Commit convention
+
+- Conventional Commits (`feat:`, `fix:`, `docs:`, `style:`, `chore:`)
+- One logical change per commit
+- Keep `src/` readable; the shipped file is just the build output
+
+## Pull request
+
+- Base branch: `master`
+- Run the verification above before opening the PR
+
+## License
+
+By contributing you agree that your contributions are licensed under the MIT License (see `LICENSE`).
+````
+
+</details>
+
+
+---
+
+<sub>5s</sub>
+
+### `glob`
+
+**src/*.js**
+
+"src/*.js"
+
+<details>
+<summary>9 matches</summary>
+
+```
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/phase-observer.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/voucher-editor.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/skill-tree-editor.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/roll-controller.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/game-bridge.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/main.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/capture-override.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/money-override.js
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/encounter-override.js
+```
+
+</details>
+
+
+---
+
+<sub>5s</sub>
+
+### `bash`
+
+**Inspect worktree and recent documentation context**
+
+$ git status --short && printf '\n--- recent history ---\n' && git --no-pager log -8 --date=short --pretty=format:'%h %ad %s'
+
+<details>
+<summary>10 lines</summary>
+
+```
+--- recent history ---
+7c07681 2026-09-11 fix(ci): use changes_detected output from git-auto-commit-action for PR step
+2d9b71d 2026-09-11 fix(ci): add branch input to git-auto-commit (create_branch needs non-empty branch name)
+51dca4f 2026-09-11 fix(ci): create_branch for docs auto-commit; workflow_dispatch with target_version for changelog
+920fada 2026-09-11 fix(ci): pass file path to copilot --share
+4762a75 2026-09-11 fix(ci): pass COPILOT_GITHUB_TOKEN to copilot CLI in docs-automation
+cabee13 2026-09-11 fix(ci): remove --timeout flag from copilot CLI invocation (unsupported option)
+46adbf0 2026-09-11 fix(ci): quote deny-tool globs in docs-automation (bash subshell error)
+c67354b 2026-09-11 docs: repo polish + Copilot docs automation (README, CHANGELOG, LICENSE, workflows)
+<shellId: 0 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>10s</sub>
+
+### `bash`
+
+**Check release tags and release history**
+
+$ git tag --sort=-version:refname && printf '\n--- v1.3.0 history ---\n' && git --no-pager log v1.3.0 --date=short --pretty=format:'%h %ad %s' -12
+
+<details>
+<summary>20 lines</summary>
+
+```
+v1.3.0
+v1.2.1
+v1.2.0
+v1.1.1
+v1.1.0
+v1.0.0
+
+--- v1.3.0 history ---
+12841bc 2026-09-11 docs: feature table + build v1.3.0
+6e8f3e5 2026-09-11 feat(ui): battle tab with shiny/capture toggles + wiring
+5cc8131 2026-09-11 feat(capture): catch-any with L2 wrapper + L1 fallback
+03b2e4f 2026-09-11 feat(encounter): always-shiny with force bypass for boss/rival/legendary
+884d768 2026-09-11 feat(storage): settings persist helpers for toggles
+d6f80bc 2026-09-11 feat(v1.3.0): bump version + build order for encounter/capture modules
+087a8e4 2026-09-11 fix: permaMoney BigInt corruption (omega freeze + load error), v1.2.1
+a53b798 2026-09-11 feat: refresh skill event-driven + voucher editor, v1.2.0
+8b1d23a 2026-09-11 fix: champion hook risolto da scene (findGameData/getGame self-heal), stop poll condizionato, v1.1.1
+347baa1 2026-09-10 fix: rimozione toggle morti, luck pool scaling robusto (anti-riwrap), fix lag battaglia, champion run hook, cleanup profilo test, bump v1.1.0
+0048640 2026-09-10 fix: toggle desync, skill points per-run, luck lock (3 bug fix)
+901cb6a 2026-09-10 style: font leggibile (system-ui/Segoe UI/Roboto) + dimensioni maggiori in UI panel
+<shellId: 1 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>10s</sub>
+
+### `bash`
+
+**Inspect documentation change history**
+
+$ git --no-pager log --all --date=short --pretty=format:'%h %ad %s' -- README.md CHANGELOG.md docs/COMPATIBILITY.md docs/CONTRIBUTING.md | head -40
+
+```
+7e67bd4 2026-09-11 docs: auto-update via GitHub Copilot [CI]
+c67354b 2026-09-11 docs: repo polish + Copilot docs automation (README, CHANGELOG, LICENSE, workflows)
+12841bc 2026-09-11 docs: feature table + build v1.3.0
+238814b 2026-09-10 chore: scaffold PokeVoid-Unlocked (header v2, struttura, report RE)
+<shellId: 3 completed with exit code 0>
+```
+
+
+---
+
+<sub>10s</sub>
+
+### `rg`
+
+**v1\.3\.0|3\.1\.8|2026-09-11|BA2n6IsS|Release-v**
+
+"v1\.3\.0|3\.1\.8|2026-09-11|BA2n6IsS|Release-v" in *.{md,yml,yaml,json,js}
+
+<details>
+<summary>40 matches</summary>
+
+```
+[grep content: 31 matches across 9 file(s) under /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked]
+
+pokevoid-unlocked.user.js (8 match(es)):
+  22:   BUILD_VERSION_FALLBACK: 'v3.1.8',
+  27:     'v3.1.8': {
+  1770: // Task 3 v1.3.0. Analisi bundle v3.1.8 (COL 20225068):
+  1784: // NOTA: bundle v3.1.8 con mangling OFF → i nomi (.shiny, .isPlayer(),
+  2119: // Task 4 v1.3.0. Analisi bundle v3.1.8:
+  2162: // NOTA: bundle v3.1.8 con mangling OFF → CommandPhase.handleCommand è
+  2168:   // ro.BALL = 1 verificato nel bundle v3.1.8.
+  2200:    * altrimenti usa il fallback hardcoded (1 = ro.BALL nel bundle v3.1.8).
+
+CHANGELOG.md (7 match(es)):
+  8: ## [1.3.0] - 2026-09-11
+  17: - docs: feature table + v1.3.0 build (12841bc)
+  19: ## [1.2.1] - 2026-09-11
+  23: ## [1.2.0] - 2026-09-11
+  27: ## [1.1.1] - 2026-09-11
+  48: [Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...HEAD
+  49: [1.3.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.1...v1.3.0
+
+src/capture-override.js (4 match(es)):
+  2: // Task 4 v1.3.0. Analisi bundle v3.1.8:
+  45: // NOTA: bundle v3.1.8 con mangling OFF → CommandPhase.handleCommand è
+  51:   // ro.BALL = 1 verificato nel bundle v3.1.8.
+  83:    * altrimenti usa il fallback hardcoded (1 = ro.BALL nel bundle v3.1.8).
+
+src/encounter-override.js (2 match(es)):
+  2: // Task 3 v1.3.0. Analisi bundle v3.1.8 (COL 20225068):
+  16: // NOTA: bundle v3.1.8 con mangling OFF → i nomi (.shiny, .isPlayer(),
+
+README.md (3 match(es)):
+  3: [![Release](https://img.shields.io/badge/Release-v1.3.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.3.0)
+  4: [![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
+  19: | ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
+
+docs/design.md (2 match(es)):
+  3: > Revisione del v1 applicando TUTTI i fix della review critica di Poseidon (evidenze RE bundle v3.1.8, index-BA2n6IsS.js, 25.7MB, esbuild keepNames).
+  34: - **Mappa COMPAT** `{ 'v3.1.8': { classes: {...}, functions: {...} } }` — aggiornare quando il bundle cambia.
+docs/COMPATIBILITY.md:7: | Game | PokeVoid — pokevoid.com (browser build) | Build v3.1.8 (bundle `index-BA2n6IsS.js`, ~25.7 MB) |
+
+src/utils/config.js (2 match(es)):
+  5:   BUILD_VERSION_FALLBACK: 'v3.1.8',
+  10:     'v3.1.8': {
+
+docs/pokevoid-roll-system-re-report.md (2 match(es)):
+  11: | **Bundle** | `assets/index-BA2n6IsS.js` (servito live da `https://pokevoid.com/assets/index-BA2n6IsS.js`) |
+  16: | **Versione** | la stringa `3.1.8` **non è contenuta nel bundle** (verificata: 0 occorrenze); la versione viene iniettata altrove (HTML/meta/server). Il bundle è lo stesso file hash-nominato della sessione v3.1.8 → **v3.1.8 assumendo unchanged** |
+```
+
+</details>
+
+
+---
+
+<sub>10s</sub>
+
+### `bash`
+
+**Verify current release reference**
+
+$ git show v1.3.0:README.md >/dev/null 2>&1; printf 'tag-readme=%s\n' "$?"; git rev-parse --verify v1.3.0^{commit} && git show -s --format='%H%n%ad%n%s' --date=iso-strict v1.3.0
+
+<details>
+<summary>6 lines</summary>
+
+```
+tag-readme=0
+12841bc66c360f04499dda5d64936dde5a1386b0
+12841bc66c360f04499dda5d64936dde5a1386b0
+2026-09-11T17:20:54+02:00
+docs: feature table + build v1.3.0
+<shellId: 2 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>19s</sub>
+
+### Copilot
+
+The release metadata is internally aligned at v1.3.0 / game build v3.1.8, so I’m checking the documented feature and automation claims against the actual repository before making any necessary corrections.
+
+---
+
+<sub>19s</sub>
+
+### `bash`
+
+**Inspect latest documentation commit**
+
+$ git log -1 --date=iso-strict --pretty=format:'%H%n%ad%n%s' && printf '\n--- docs commit ---\n' && git show --stat --oneline 7e67bd4 && git show --format=fuller --no-ext-diff 7e67bd4 -- README.md CHANGELOG.md docs/COMPATIBILITY.md docs/CONTRIBUTING.md
+
+<details>
+<summary>24 lines</summary>
+
+```diff
+7c07681f8f70e95f30559588a6f8a15c3faaf005
+2026-09-11T20:10:30+02:00
+fix(ci): use changes_detected output from git-auto-commit-action for PR step
+--- docs commit ---
+7e67bd4 docs: auto-update via GitHub Copilot [CI]
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+commit 7e67bd4bf3ca6a5264b82136aa98803fdbc36df5
+Author:     GangstaVik <133251285+GangstaVik@users.noreply.github.com>
+AuthorDate: Fri Sep 11 18:06:26 2026 +0000
+Commit:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+CommitDate: Fri Sep 11 18:06:26 2026 +0000
+
+    docs: auto-update via GitHub Copilot [CI]
+
+diff --git a/README.md b/README.md
+index 5236e24..b7e507b 100644
+--- a/README.md
++++ b/README.md
+@@ -17,6 +17,7 @@ A free, open-source userscript that unlocks extra features for the **browser ver
+ | 💰 Money Override | Set the in-game currency value. BigInt-safe. |
+ | 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |
+ | ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
++| ⚙️ Settings persistence | Store toggle settings between sessions. |
+ 
+ > UI and utility modules that back these features are listed in [Structure](#structure).
+<shellId: 4 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>19s</sub>
+
+### `bash`
+
+**Validate changelog commit references**
+
+$ for c in d6f80bc 884d768 03b2e4f 5cc8131 6e8f3e5 12841bc 087a8e4 a53b798 8b1d23a 7f61f8f 0048640 347baa1 901cb6a fa9db79 bd9e024 238814b; do git cat-file -e "$c^{commit}" || echo "missing $c"; done
+
+```
+
+<shellId: 5 completed with exit code 0>
+```
+
+
+---
+
+<sub>19s</sub>
+
+### `bash`
+
+**Inventory documented modules and automation**
+
+$ printf '%s\n' '--- source files ---'; find src -maxdepth 2 -type f -name '*.js' -printf '%p\n' | sort; printf '%s\n' '--- workflow files ---'; find .github/workflows -maxdepth 1 -type f -printf '%f\n' | sort
+
+<details>
+<summary>24 lines</summary>
+
+```
+--- source files ---
+src/capture-override.js
+src/encounter-override.js
+src/game-bridge.js
+src/main.js
+src/money-override.js
+src/phase-observer.js
+src/roll-controller.js
+src/skill-tree-editor.js
+src/ui/battle-screen.js
+src/ui/floating-btn.js
+src/ui/panel.js
+src/ui/roll-screen.js
+src/ui/skill-screen.js
+src/ui/styles.js
+src/ui/voucher-screen.js
+src/utils/config.js
+src/utils/helpers.js
+src/utils/storage.js
+src/voucher-editor.js
+--- workflow files ---
+docs-automation.yml
+update-changelog.yml
+<shellId: 6 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>19s</sub>
+
+### `rg`
+
+**localStorage|sessionStorage|persist|toggle|voucher|money|skill|roll|shiny|capture**
+
+"localStorage|sessionStorage|persist|toggle|voucher|money|skill|roll|shiny|capture" in *.js (src)
+
+<details>
+<summary>224 matches</summary>
+
+```
+[grep content: 389 matches across 18 file(s) under /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src]
+
+utils/storage.js (34 match(es)):
+  22:       const data = localStorage.getItem(key);
+  29:       localStorage.setItem(backupKey, data);
+  40:    * Se mismatch → rollback al backup + notifica.
+  43:    * @param {string} backupKey - La key del backup (da rollbackare in caso di errore)
+  49:       const actual = localStorage.getItem(key);
+  51:         warn('MISMATCH post-write! Prendo rollback da backup:', backupKey);
+  53:           const backupData = localStorage.getItem(backupKey);
+  55:             localStorage.setItem(key, backupData);
+  91:       localStorage.setItem(key, jsonStr);
+  115:       const raw = localStorage.getItem(key);
+  190:    * Sanitizzazione allo start: scansiona TUTTI i save `data_*` nel localStorage e
+  197:    *   + validatePostWrite su ogni chiave modificata (rollback su mismatch).
+  204:       for (let i = 0; i < localStorage.length; i++) {
+  205:         const k = localStorage.key(i);
+  214:         const raw = localStorage.getItem(key);
+  238:             localStorage.setItem(key, jsonStr);
+  241:               error('Validazione sanitize fallita per', key, '— rollback applicato');
+  248:             // rollback manuale se validatePostWrite non ha potuto agire
+  250:               const bk = localStorage.getItem(backup.key);
+  251:               if (bk) localStorage.setItem(key, bk);
+  268:    * Get username corrente dal localStorage o fallback a 'guest'.
+  272:       // Il gioco salva il campo "username" nel localStorage
+  273:       const userInfo = localStorage.getItem('userInfo');
+  279:       for (let i = 0; i < localStorage.length; i++) {
+  280:         const k = localStorage.key(i);
+  289:   // --- Settings utente (toggle shiny / capture) ---
+  290:   // Chiave localStorage separata dai save di gioco: mai toccata da sanitizeSavedData
+  296:   const DEFAULT_SETTINGS = { v: 1, shiny: false, capture: false };
+  302:    * @returns {{ v: number, shiny: boolean, capture: boolean }}
+  306:       const raw = localStorage.getItem(SETTINGS_KEY);
+  320:    * - Silenzioso su errore (localStorage pieno/privato): il gioco non deve
+  321:    *   crashare per colpa dei nostri toggle.
+  322:    * @param {object} patch - Campi da aggiornare (es. { shiny: true })
+  328:       localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+
+utils/config.js (11 match(es)):
+  19:         getRerollCost: {
+  21:           aob: 'getRerollCost(t,n){if(ot.WAIVE_ROLL_FEE_OVERRIDE)return{rerollCost:0,permaRerollCost:0}',
+  29:           // Il vecchio hook sceneProto era morto — rimosso dal roll-controller.
+  38:           // PARTE 2: NON patchabile (standalone). Rimosso dal roll-controller.
+  47:           aob: 'updateMoneyText(t=!0){if(this.money===void 0)return',
+  70:           occurrences: 2, // su (roll) + classe diversa (shop, @17411223)
+  111:     battle: ['money'],
+  112:     modifierSelect: ['money', 'roll'],
+  113:     shop: ['money'],
+  114:     skillTree: ['money', 'skill'],
+  115:     menu: ['money', 'skill'],
+
+utils/helpers.js (2 match(es)):
+  32:    * @param {string} pattern - Stringa da cercare (es: "getRerollCost")
+  55:    * @param {string} functionName - Nome della funzione (es: "getRerollCost")
+
+phase-observer.js (3 match(es)):
+  119:     // Hook updateMoneyText per sapere quando il money viene aggiornato
+  143:       bridge.captureSceneFromPhase(phaseObj);
+  170:     if (n.indexOf('skill') !== -1) return 'skillTree';
+
+main.js (16 match(es)):
+  48:         pvu.panel.toggle();
+  63:   // 5. Init roll controller
+  64:   if (pvu.rollController) {
+  65:     pvu.rollController.init();
+  68:   // 5b. Init encounter override (Always Shiny) — lo stato persistito viene
+  75:   // 5c. Init capture override (Catch Any) — stato persistito letto qui;
+  78:   if (pvu.captureOverride) {
+  79:     pvu.captureOverride.init();
+  105:     if (pvu.rollController) {
+  106:       const applied = pvu.rollController.applyHooks();
+  110:         warn('Alcuni roll hooks non applicati (in attesa phase push/unshift)');
+  124:     // Hook capture override (Catch Any) — retry interno su CommandPhase.prototype
+  125:     if (pvu.captureOverride) {
+  126:       pvu.captureOverride.applyHooks();
+  146:   // 7. Keyboard shortcut: Ctrl+Shift+P per toggle panel
+  153:         pvu.panel.toggle();
+
+voucher-editor.js (17 match(es)):
+  1: // src/voucher-editor.js — Voucher editor module
+  22:       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+  23:         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  26:         REGULAR: gd.voucherCounts[0] || 0,
+  27:         PLUS: gd.voucherCounts[1] || 0,
+  28:         PREMIUM: gd.voucherCounts[2] || 0,
+  29:         GOLDEN: gd.voucherCounts[3] || 0,
+  50:       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+  51:         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  53:       gd.voucherCounts[typeIndex] = numVal;
+  68:       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
+  69:         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  73:         if (!isNaN(v)) gd.voucherCounts[0] = v;
+  77:         if (!isNaN(v)) gd.voucherCounts[1] = v;
+  81:         if (!isNaN(v)) gd.voucherCounts[2] = v;
+  85:         if (!isNaN(v)) gd.voucherCounts[3] = v;
+  106: window.__pvu.voucherEditor = PvuVoucherEditor;
+
+capture-override.js (13 match(es)):
+  1: // src/capture-override.js — Catch Any Pokemon (L2 wrapper + L1 fallback)
+  11: //   5. money: scene.money < getRequiredMoneyForPokeBuy
+  34: //   3. Se blocca + toggle ON + L2 verificato → forza injection nel ramo successo.
+  221:    *   4. Blocco + L2 verificato + toggle ON → forceInject + return true
+  414:    * Toggle Catch Any Pokemon. Persistito in localStorage via storage.setSettings.
+  418:   function toggleCapture(val) {
+  424:       storage.setSettings({ capture: state.enabled });
+  432:    * Legge lo stato persistito all'avvio.
+  433:    * @returns {boolean} stato capture persistito
+  440:       state.enabled = !!settings.capture;
+  450:    * Init: carica stato persistito e avvia hook.
+  508:     toggleCapture: toggleCapture,
+  515: window.__pvu.captureOverride = PvuCaptureOverride;
+
+money-override.js (11 match(es)):
+  1: // src/money-override.js — Campo numerico + Apply per money
+  14:    * Imposta money nella run corrente + permaMoney persistente.
+  38:       // scene.money (run corrente)
+  39:       scene.money = amount;
+  40:       log('scene.money impostato a', amount);
+  42:       // gameData.permaMoney (persistente)
+  85:         warn('gameData non disponibile — money solo in run');
+  86:         return { ok: true, sceneMoney: amount, error: 'gameData non trovato, solo run money aggiornato' };
+  95:    * Leggi il money corrente.
+  101:       if (scene && scene.money !== undefined) return Number(scene.money);
+  151: window.__pvu.moneyOverride = PvuMoneyOverride;
+
+skill-tree-editor.js (39 match(es)):
+  1: // src/skill-tree-editor.js — Editor skill points + unlock bypass
+  2: // BUG 2 FIX: read/write activeSkillTree.skillPoints (per-run SP), not gd.skillPoints (global)
+  24:    * This is the per-run skill tree instance containing skillPoints, tokens, unlockedBranches, etc.
+  33:   // skill-screen chiama refreshUI ogni 3s → senza throttle spammeremmo la console.
+  85:    * Leggi skillPoints correnti dal per-run activeSkillTree.
+  86:    * Bundle path: gameData.activeSkillTree.skillPoints (not gameData.skillPoints!)
+  91:     return Number(ast.skillPoints || 0);
+  95:    * Imposta skillPoints sul per-run activeSkillTree.
+  103:     ast.skillPoints = Math.max(0, Math.floor(amount));
+  104:     log('activeSkillTree.skillPoints impostato a', ast.skillPoints);
+  117:    * Il gioco può salvarlo come array, Map, o oggetto { [skillId]: {...} }.
+  122:     if (typeof locked === 'string') return [{ skillId: locked }];
+  128:       // Object-like: { [skillId]: data }
+  132:           return Object.assign({ skillId: k }, v);
+  134:         return { skillId: k };
+  141:    * Get locked skills del champion corrente.
+  155:    * Get champion skill version corrente.
+  168:    * Sblocca una skill: bypass prerequisiti, spesa 0, push in unlocked<>.
+  169:    * @param {string} skillId - L'ID della skill da sbloccare
+  173:   function unlockSkill(skillId, unlockableCategory) {
+  192:         return s.skillId === skillId || s.id === skillId || s === skillId;
+  197:         log('Skill', skillId, 'rimossa da lockedSkills');
+  205:       if (champData[unlockedKey].indexOf(skillId) === -1) {
+  206:         champData[unlockedKey].push(skillId);
+  207:         log('Skill', skillId, 'aggiunta a', unlockedKey);
+  225:    * Check se la champion skill version è cambiata rispetto all'ultima volta
+  231:       const saved = localStorage.getItem('__pvu_unlockedVersion');
+  249:         localStorage.setItem('__pvu_unlockedVersion', JSON.stringify({ version: ver, ts: Date.now() }));
+  261:       const skill = locked[i];
+  262:       if (!skill) continue;
+  263:       const skillId = skill.skillId || skill.id || ('skill_' + i);
+  264:       const category = skill.category || skill.type || guessCategory(skill);
+  265:       const requiredLevel = skill.unlockLevel || skill.level || 0;
+  266:       const requiredEssence = skill.requiredEssenceWeights || skill.essenceWeights || null;
+  268:         skillId: skillId,
+  272:         raw: skill,
+  278:   function guessCategory(skill) {
+  279:     const s = JSON.stringify(skill).toLowerCase();
+  303: window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
+
+encounter-override.js (30 match(es)):
+  4: // trySetShiny(t) interno ha GUARDIE che bloccano lo shiny anche con t=65536:
+  10: // Se una guardia scatta → return senza scrivere this.shiny.
+  12: // Soluzione: per i Pokemon NEMICI bypass diretto (this.shiny=65536 +
+  16: // NOTA: bundle v3.1.8 con mangling OFF → i nomi (.shiny, .isPlayer(),
+  24:   // Stato toggle. `shiny` è persistito in localStorage via storage.setSettings
+  25:   // (chiave '__pvu_settings', campo `shiny` già previsto in DEFAULT_SETTINGS).
+  27:     shiny: false,        // toggle Always Shiny (letto da storage in init)
+  34:       forced: 0,         // shiny forzati (bypass diretto su nemici)
+  35:       player: 0,         // shiny delegati al nativo (player)
+  124:    * trySetShiny (scrittura shiny + sparkle + variant) SENZA passare dalle
+  130:     poke.shiny = 65536;
+  132:     // Sparkle: animazione di brillio — va dopo la scrittura di .shiny
+  133:     // perché l'implementazione interna controlla il flag.
+  138:     // Variant: la texture/forma shiny (valori enormi per le varianti sparkle)
+  149:    * @param {Array} args - [t] dove t è il valore shiny rolling (0 | 65536)
+  156:     if (!state.shiny) {
+  255:    * Toggle Always Shiny. Persistito in localStorage via storage.setSettings.
+  259:   function toggleShiny(val) {
+  260:     state.shiny = val !== undefined ? !!val : !state.shiny;
+  264:       storage.setSettings({ shiny: state.shiny });
+  267:     log('Always Shiny:', state.shiny ? 'ON' : 'OFF');
+  268:     return state.shiny;
+  272:    * Legge lo stato persistito all'avvio.
+  273:    * @returns {boolean} stato shiny persistito
+  280:       state.shiny = !!settings.shiny;
+  281:       return state.shiny;
+  289:    * Init: carica lo stato persistito e avvia il retry degli hooks.
+  295:     if (state.shiny) {
+  330:       shiny: state.shiny,
+  342:     toggleShiny: toggleShiny,
+
+roll-controller.js (28 match(es)):
+  1: // src/roll-controller.js — 2 toggle onesti + itemcount slider + luck lock
+  2: // PARTE 2: rimossi toggle morti (freeReroll, poolQuality) + hook su funzioni standalone inutili
+  5: const PvuRollController = (() => {
+  6:   const LOG_PREFIX = '[PvuRollController]';
+  13:   // Stato toggle
+  31:     getRerollCost: null,
+  85:     // Le phase di interesse sono quelle con getRerollCost (SelectModifierPhase = su).
+  88:     if (typeof phaseObj.getRerollCost !== 'function') return false;
+  93:     // --- getRerollCost: costo del reroll (istanza su) ---
+  94:     if (!phaseObj._pvu_rerollHooked) {
+  95:       originals.getRerollCost = phaseObj.getRerollCost.bind(phaseObj);
+  96:       const orig = phaseObj.getRerollCost;
+  97:       phaseObj.getRerollCost = function() {
+  101:             return { rerollCost: 0, permaRerollCost: 0 };
+  105:           warn('hook getRerollCost error:', e);
+  109:       phaseObj._pvu_rerollHooked = true;
+  223:    *   (conservativo). Il free roll che funziona davvero è l'hook su getRerollCost
+  225:    *   `if (ot.WAIVE_ROLL_FEE_OVERRIDE) return { rerollCost: 0, permaRerollCost: 0 }`
+  269:     if (originals.getRerollCost) {
+  272:       log('Hooks applicati con successo (getRerollCost patched)');
+  309:           if (p && typeof p.getRerollCost === 'function' && !p[PVU_PATCHED]) {
+  320:       window.__pvu._rollStateChange = Date.now();
+  326:   function toggleCostOverride(val) {
+  350:   function toggleLuckLock(val) {
+  375:     originals.getRerollCost = null;
+  389:     toggleCostOverride: toggleCostOverride,
+  392:     toggleLuckLock: toggleLuckLock,
+  397: window.__pvu.rollController = PvuRollController;
+
+game-bridge.js (6 match(es)):
+  65:   function captureBundleSource() {
+  88:       warn('captureBundleSource fallito:', e);
+  113:     if (name.indexOf('skill') !== -1) return 'skillTree';
+  258:   function captureSceneFromPhase(phaseObj) {
+  303:       captureBundleSource();
+  392:     captureSceneFromPhase: captureSceneFromPhase,
+
+[omitted 179 match(es) in 6 file(s); see original output for full results]
+```
+
+</details>
+
+
+---
+
+<sub>26s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/ui/roll-screen.js.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/ui/roll-screen.js
+
+<details>
+<summary>226 lines</summary>
+
+```
+// src/ui/roll-screen.js — UI Roll Controller (tab Roll)
+// PARTE 2: rimossi toggle morti (freeReroll, poolQuality)
+// Luck Lock: influisce SOLO sulle offerte del roll (getModifierTypeOptions su), non su party luck/battle
+const PvuRollScreen = (() => {
+  const LOG_PREFIX = '[PvuRollScreen]';
+  let containerEl = null;
+  let refreshTimer = null;
+
+  // Track toggle switch DOM elements by state key for sync
+  const toggleRefs = {};
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  function render(parentEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = 'pvu-roll-screen';
+
+    // === Reroll Section ===
+    const rerollSection = document.createElement('div');
+    rerollSection.className = 'pvu-section';
+
+    const rerollTitle = document.createElement('div');
+    rerollTitle.className = 'pvu-section-title';
+    rerollTitle.textContent = 'ROLL CONTROLLER';
+    rerollSection.appendChild(rerollTitle);
+
+    // Cost Override
+    const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
+      window.__pvu.rollController.toggleCostOverride(val);
+    });
+    rerollSection.appendChild(costOverrideResult.row);
+    toggleRefs.costOverride = costOverrideResult.switchEl;
+
+    containerEl.appendChild(rerollSection);
+
+    // === BUG 3: Luck Lock Section ===
+    const luckSection = document.createElement('div');
+    luckSection.className = 'pvu-section';
+
+    const luckTitle = document.createElement('div');
+    luckTitle.className = 'pvu-section-title';
+    luckTitle.textContent = 'LUCK LOCK';
+    luckSection.appendChild(luckTitle);
+
+    // Luck slider
+    const luckSliderRow = document.createElement('div');
+    luckSliderRow.className = 'pvu-slider-row';
+
+    const luckSlider = document.createElement('input');
+    luckSlider.type = 'range';
+    luckSlider.className = 'pvu-slider';
+    luckSlider.min = '1';
+    luckSlider.max = '7';
+    luckSlider.value = '5';
+    luckSlider.id = 'pvu-luck-slider';
+
+    const luckValLabel = document.createElement('span');
+    luckValLabel.className = 'pvu-slider-val';
+    luckValLabel.textContent = '5';
+    luckValLabel.id = 'pvu-luck-val';
+
+    luckSlider.addEventListener('input', function() {
+      const v = parseInt(luckSlider.value, 10);
+      luckValLabel.textContent = v;
+      window.__pvu.rollController.setLuckValue(v);
+    });
+
+    luckSliderRow.appendChild(luckSlider);
+    luckSliderRow.appendChild(luckValLabel);
+    luckSection.appendChild(luckSliderRow);
+
+    // Luck Lock toggle
+    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per le offerte del roll', false, function(val) {
+      window.__pvu.rollController.toggleLuckLock(val);
+    });
+    luckSection.appendChild(luckLockResult.row);
+    toggleRefs.luckLock = luckLockResult.switchEl;
+
+    // Luck info
+    const luckInfo = document.createElement('div');
+    luckInfo.className = 'pvu-status';
+    luckInfo.textContent = '1-7 (5 = default). Influenza la qualità delle offerte del roll; non tocca il party luck delle battle e non raggiunge shop/ball-lock.';
+    luckSection.appendChild(luckInfo);
+
+    containerEl.appendChild(luckSection);
+
+    // === Item Count Section ===
+    const itemSection = document.createElement('div');
+    itemSection.className = 'pvu-section';
+
+    const itemTitle = document.createElement('div');
+    itemTitle.className = 'pvu-section-title';
+    itemTitle.textContent = 'ITEM COUNT';
+    itemSection.appendChild(itemTitle);
+
+    const sliderRow = document.createElement('div');
+    sliderRow.className = 'pvu-slider-row';
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'pvu-slider';
+    slider.min = '0';
+    slider.max = '4';
+    slider.value = '2';
+    slider.id = 'pvu-item-slider';
+
+    const valLabel = document.createElement('span');
+    valLabel.className = 'pvu-slider-val';
+    valLabel.textContent = '+2';
+    valLabel.id = 'pvu-item-val';
+
+    slider.addEventListener('input', function() {
+      const v = parseInt(slider.value, 10);
+      valLabel.textContent = '+' + v;
+      window.__pvu.rollController.setItemCountExtra(v);
+    });
+
+    sliderRow.appendChild(slider);
+    sliderRow.appendChild(valLabel);
+    itemSection.appendChild(sliderRow);
+
+    const itemInfo = document.createElement('div');
+    itemInfo.className = 'pvu-status';
+    itemInfo.textContent = 'Aggiunge opzioni alle offerte del roll (es: +2 = 5 opzioni con le 3 base).';
+    itemSection.appendChild(itemInfo);
+
+    containerEl.appendChild(itemSection);
+
+    // === Status ===
+    const statusSection = document.createElement('div');
+    statusSection.className = 'pvu-section';
+
+    const statusTitle = document.createElement('div');
+    statusTitle.className = 'pvu-section-title';
+    statusTitle.textContent = 'STATO HOOK';
+    statusSection.appendChild(statusTitle);
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'pvu-status';
+    statusEl.id = 'pvu-roll-status';
+    statusEl.textContent = 'In attesa...';
+    statusSection.appendChild(statusEl);
+
+    containerEl.appendChild(statusSection);
+
+    // Version badge
+    const verEl = document.createElement('div');
+    verEl.className = 'pvu-ver';
+    verEl.textContent = 'PokeVoid-Unlocked v' + (window.__pvu.config ? window.__pvu.config.VERSION : '1.0.0');
+    containerEl.appendChild(verEl);
+
+    parentEl.appendChild(containerEl);
+
+    // Auto-refresh stato
+    refreshTimer = setInterval(refreshUI, 2000);
+    refreshUI();
+  }
+
+  /**
+   * Create a toggle row. Returns { row, switchEl } so caller can reference the switch DOM.
+   * BUG 1 FIX: caller now receives switchEl for sync in refreshUI.
+   */
+  function createToggle(label, description, initial, onChange) {
+    const row = document.createElement('div');
+    row.className = 'pvu-toggle';
+
+    const left = document.createElement('div');
+    const labelEl = document.createElement('div');
+    labelEl.className = 'pvu-toggle-label';
+    labelEl.textContent = label;
+    left.appendChild(labelEl);
+
+    if (description) {
+      const descEl = document.createElement('div');
+      descEl.className = 'pvu-toggle-desc';
+      descEl.textContent = description;
+      left.appendChild(descEl);
+    }
+
+    const switchEl = document.createElement('div');
+    switchEl.className = 'pvu-switch' + (initial ? ' on' : '');
+
+    switchEl.addEventListener('click', function() {
+      const isOn = switchEl.classList.toggle('on');
+      if (typeof onChange === 'function') {
+        onChange(isOn);
+      }
+    });
+
+    row.appendChild(left);
+    row.appendChild(switchEl);
+    return { row: row, switchEl: switchEl };
+  }
+
+  /**
+   * BUG 1 FIX: sync all toggle switches and sliders from controller state.
+   * Called on every refresh interval and after user actions.
+   */
+  function refreshUI() {
+    if (!containerEl) return;
+    const state = window.__pvu.rollController.getState();
+
+    // Sync toggle switches from controller state
+    if (toggleRefs.costOverride) {
+      setSwitchState(toggleRefs.costOverride, state.costOverride);
+    }
+    if (toggleRefs.luckLock) {
+      setSwitchState(toggleRefs.luckLock, state.luckLock);
+    }
+
+    // Sync status text
+    const statusEl = containerEl.querySelector('#pvu-roll-status');
+    if (statusEl) {
+      const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
+      const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
+      const patchInfo = state.patchedPhaseCount > 0 ? ' | Phase patchate: ' + state.patchedPhaseCount : '';
+      statusEl.textContent = hookStatus + costStatus + luckStatus + patchInfo;
+      statusEl.className = 'pvu-status ' + (state.hooksApplied ? 'ok' : 'warn');
+    }
+
+    // Sync item count slider
+    const slider = containerEl.querySelector('#pvu-item-slider');
+    const valLabel = containerEl.querySelector('#pvu-item-val');
+    if (slider && valLabel) {
+      if (document.activeElement !== slider) {
+        slider.value = state.itemCountExtra;
+        valLabel.textContent = '+' + state.itemCountExtra;
+      }
+    }
+
+    // BUG 3: Sync luck slider
+    const luckSlider = containerEl.querySelector('#pvu-luck-slider');
+    const luckValLabel = containerEl.querySelector('#pvu-luck-val');
+    if (luckSlider && luckValLabel) {
+      if (document.activeElement !== luckSlider) {
+        luckSlider.value = state.luckValue;
+        luckValLabel.textContent = state.luckValue;
+      }
+    }
+  }
+
+  /**
+   * Sync a switch element's visual state from a boolean.
+   * Does NOT trigger the click handler — only updates DOM class.
+   */
+  function setSwitchState(switchEl, isOn) {
+    if (!switchEl) return;
+    if (isOn && !switchEl.classList.contains('on')) {
+      switchEl.classList.add('on');
+    } else if (!isOn && switchEl.classList.contains('on')) {
+      switchEl.classList.remove('on');
+    }
+  }
+
+  function destroy() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+    Object.keys(toggleRefs).forEach(function(k) { toggleRefs[k] = null; });
+    if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
+    containerEl = null;
+  }
+
+  return {
+    render: render,
+    refreshUI: refreshUI,
+    destroy: destroy,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.rollScreen = PvuRollScreen;
+```
+
+</details>
+
+
+---
+
+<sub>26s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/roll-controller.js.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/roll-controller.js (lines 320-405)
+
+<details>
+<summary>68 lines</summary>
+
+```
+      window.__pvu._rollStateChange = Date.now();
+    } catch(e) {}
+  }
+
+  // === Toggle API ===
+
+  function toggleCostOverride(val) {
+    state.costOverride = val !== undefined ? val : !state.costOverride;
+    setWaiveRollFeeOverride(state.costOverride);
+    log('Cost Override:', state.costOverride ? 'ON' : 'OFF');
+    emitStateChange();
+    return state.costOverride;
+  }
+
+  function setItemCountExtra(val) {
+    state.itemCountExtra = Math.max(0, Math.min(4, parseInt(val, 10) || 0));
+    log('Item Count extra:', '+' + state.itemCountExtra);
+    emitStateChange();
+    return state.itemCountExtra;
+  }
+
+  // === Luck API ===
+
+  function setLuckValue(val) {
+    state.luckValue = Math.max(1, Math.min(7, parseInt(val, 10) || 5));
+    log('Luck value:', state.luckValue);
+    emitStateChange();
+    return state.luckValue;
+  }
+
+  function toggleLuckLock(val) {
+    state.luckLock = val !== undefined ? val : !state.luckLock;
+    log('Luck Lock:', state.luckLock ? 'ON (luck=' + state.luckValue + ')' : 'OFF');
+    emitStateChange();
+    return state.luckLock;
+  }
+
+  function getState() {
+    return {
+      costOverride: state.costOverride,
+      itemCountExtra: state.itemCountExtra,
+      luckValue: state.luckValue,
+      luckLock: state.luckLock,
+      active: state.active,
+      hooksApplied: state.hooksApplied,
+      patchedPhaseCount: state.patchedPhaseCount,
+      lastPatchedPhase: state.lastPatchedPhase,
+    };
+  }
+
+  function destroy() {
+    for (let i = 0; i < unpatchFns.length; i++) {
+      try { unpatchFns[i](); } catch(e) {}
+    }
+    unpatchFns.length = 0;
+    originals.getRerollCost = null;
+    originals.updateMoneyText = null;
+    state.hooksApplied = false;
+    state.active = false;
+    state.patchedPhaseCount = 0;
+    state._arenaHooked = false;
+    log('destroy');
+  }
+
+  return {
+    init: function() { log('init'); },
+    destroy: destroy,
+    applyHooks: applyHooks,
+    getState: getState,
+    toggleCostOverride: toggleCostOverride,
+    setItemCountExtra: setItemCountExtra,
+    setLuckValue: setLuckValue,
+    toggleLuckLock: toggleLuckLock,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.rollController = PvuRollController;
+```
+
+</details>
+
+
+---
+
+<sub>26s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/ui/battle-screen.js.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/ui/battle-screen.js
+
+<details>
+<summary>171 lines</summary>
+
+```
+// src/ui/battle-screen.js — UI Battle: toggle Sempre Shiny + Cattura Tutto (tab Battle)
+// Segue il pattern di roll-screen.js: createToggle, setSwitchState, refreshUI 2s
+const PvuBattleScreen = (() => {
+  const LOG_PREFIX = '[PvuBattleScreen]';
+  let containerEl = null;
+  let refreshTimer = null;
+
+  // Riferimenti DOM ai toggle switch per sync nello refreshUI
+  const toggleRefs = {};
+
+  function log() {
+    console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
+  }
+
+  function render(parentEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = 'pvu-battle-screen';
+
+    // === INCONTRI — Sempre Shiny ===
+    const encounterSection = document.createElement('div');
+    encounterSection.className = 'pvu-section';
+
+    const encounterTitle = document.createElement('div');
+    encounterTitle.className = 'pvu-section-title';
+    encounterTitle.textContent = 'SEMPRE SHINY';
+    encounterSection.appendChild(encounterTitle);
+
+    var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
+    var shinyResult = createToggle(
+      'Sempre Shiny',
+      'Ogni Pokemon incontrato nasce shiny (wild, boss, rival, legendary)',
+      !!encounterState.shiny,
+      function(val) {
+        window.__pvu.encounterOverride?.toggleShiny?.(val);
+      }
+    );
+    encounterSection.appendChild(shinyResult.row);
+    toggleRefs.shiny = shinyResult.switchEl;
+
+    // Stato hooks encounter
+    var shinyStatus = document.createElement('div');
+    shinyStatus.className = 'pvu-status';
+    shinyStatus.id = 'pvu-battle-shiny-status';
+    shinyStatus.textContent = 'In attesa...';
+    encounterSection.appendChild(shinyStatus);
+
+    containerEl.appendChild(encounterSection);
+
+    // === CATTURA — Cattura Tutto ===
+    const captureSection = document.createElement('div');
+    captureSection.className = 'pvu-section';
+
+    const captureTitle = document.createElement('div');
+    captureTitle.className = 'pvu-section-title';
+    captureTitle.textContent = 'CATTURA TUTTO';
+    captureSection.appendChild(captureTitle);
+
+    var captureState = window.__pvu.captureOverride?.getState?.() || {};
+    var captureResult = createToggle(
+      'Cattura Tutto',
+      'Qualsiasi lancio di Pokeball cattura sempre il Pokemon (L2 wrapper, fallback L1)',
+      !!captureState.enabled,
+      function(val) {
+        window.__pvu.captureOverride?.toggleCapture?.(val);
+      }
+    );
+    captureSection.appendChild(captureResult.row);
+    toggleRefs.capture = captureResult.switchEl;
+
+    // Status row cattura
+    var captureStatus = document.createElement('div');
+    captureStatus.className = 'pvu-status';
+    captureStatus.id = 'pvu-battle-capture-status';
+    captureStatus.textContent = 'In attesa...';
+    captureSection.appendChild(captureStatus);
+
+    containerEl.appendChild(captureSection);
+
+    // Version badge
+    var verEl = document.createElement('div');
+    verEl.className = 'pvu-ver';
+    verEl.textContent = 'PokeVoid-Unlocked v' + (window.__pvu.config ? window.__pvu.config.VERSION : '1.0.0');
+    containerEl.appendChild(verEl);
+
+    parentEl.appendChild(containerEl);
+
+    // Auto-refresh stato (2s, come roll-screen)
+    refreshTimer = setInterval(refreshUI, 2000);
+    refreshUI();
+  }
+
+  /**
+   * Crea un toggle switch con label e descrizione.
+   * Restituisce { row, switchEl } — stesso pattern di roll-screen.js.
+   */
+  function createToggle(label, description, initial, onChange) {
+    const row = document.createElement('div');
+    row.className = 'pvu-toggle';
+
+    const left = document.createElement('div');
+    const labelEl = document.createElement('div');
+    labelEl.className = 'pvu-toggle-label';
+    labelEl.textContent = label;
+    left.appendChild(labelEl);
+
+    if (description) {
+      const descEl = document.createElement('div');
+      descEl.className = 'pvu-toggle-desc';
+      descEl.textContent = description;
+      left.appendChild(descEl);
+    }
+
+    const switchEl = document.createElement('div');
+    switchEl.className = 'pvu-switch' + (initial ? ' on' : '');
+
+    switchEl.addEventListener('click', function() {
+      const isOn = switchEl.classList.toggle('on');
+      if (typeof onChange === 'function') {
+        onChange(isOn);
+      }
+    });
+
+    row.appendChild(left);
+    row.appendChild(switchEl);
+    return { row: row, switchEl: switchEl };
+  }
+
+  /**
+   * Aggiorna tutti gli switch e i testi di stato dallo stato reale dei moduli.
+   * Chiamata ogni 2s dal refreshTimer e al primo render.
+   */
+  function refreshUI() {
+    if (!containerEl) return;
+
+    var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
+    var captureState = window.__pvu.captureOverride?.getState?.() || {};
+
+    // --- Shiny toggle + status ---
+    setSwitchState(toggleRefs.shiny, !!encounterState.shiny);
+
+    var shinyStatusEl = containerEl.querySelector('#pvu-battle-shiny-status');
+    if (shinyStatusEl) {
+      var encHooks = encounterState.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      var encDetail = encounterState.hooksApplied
+        ? ' — Pokemon: ' + (encounterState.hookStats?.pokemonPatched || 0)
+        : '';
+      shinyStatusEl.textContent = encHooks + encDetail;
+      shinyStatusEl.className = 'pvu-status ' + (encounterState.hooksApplied ? 'ok' : 'warn');
+    }
+
+    // --- Capture toggle + status ---
+    setSwitchState(toggleRefs.capture, !!captureState.enabled);
+
+    var captureStatusEl = containerEl.querySelector('#pvu-battle-capture-status');
+    if (captureStatusEl && captureState.enabled) {
+      var levelText = captureState.level === 2
+        ? (captureState.level2Verified ? 'L2 (wrapper) ✅' : 'L2 (wrapper) ⏳ in verifica')
+        : captureState.level === 1
+          ? 'L1 (fallback) ⚠️'
+          : '—';
+      var captured = captureState.injectedCount || 0;
+      var errors = captureState.errorCount || 0;
+      captureStatusEl.textContent =
+        'Livello: ' + levelText +
+        ' | Catture forzate: ' + captured +
+        ' | Errori: ' + errors;
+      captureStatusEl.className = 'pvu-status ' +
+        (errors >= 3 ? 'err' : errors > 0 ? 'warn' : 'ok');
+    } else if (captureStatusEl) {
+      captureStatusEl.textContent = 'Cattura Tutto disattivata';
+      captureStatusEl.className = 'pvu-status';
+    }
+  }
+
+  /**
+   * Sync stato visuale di uno switch con un booleano (senza triggerare l'onChange).
+   */
+  function setSwitchState(switchEl, isOn) {
+    if (!switchEl) return;
+    if (isOn && !switchEl.classList.contains('on')) {
+      switchEl.classList.add('on');
+    } else if (!isOn && switchEl.classList.contains('on')) {
+      switchEl.classList.remove('on');
+    }
+  }
+
+  function destroy() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+    Object.keys(toggleRefs).forEach(function(k) { toggleRefs[k] = null; });
+    if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
+    containerEl = null;
+  }
+
+  return {
+    render: render,
+    refreshUI: refreshUI,
+    destroy: destroy,
+  };
+})();
+
+window.__pvu = window.__pvu || {};
+window.__pvu.battleScreen = PvuBattleScreen;
+```
+
+</details>
+
+
+---
+
+<sub>26s</sub>
+
+### `view`
+
+**view the file at /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/utils/storage.js.**
+
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/src/utils/storage.js (lines 285-340)
+
+<details>
+<summary>51 lines</summary>
+
+```
+    } catch (e) { /* ignore */ }
+    return 'guest';
+  }
+
+  // --- Settings utente (toggle shiny / capture) ---
+  // Chiave localStorage separata dai save di gioco: mai toccata da sanitizeSavedData
+  // (che scansiona solo prefissi data_, ed esclude data_pvu_/data_backup).
+  const SETTINGS_KEY = '__pvu_settings';
+
+  // Default settings. `v` = versione schema (forward-compat: il merge in
+  // getSettings aggiunge i campi mancanti ai save scritti con schemi vecchi).
+  const DEFAULT_SETTINGS = { v: 1, shiny: false, capture: false };
+
+  /**
+   * Legge settings con fallback ai default.
+   * - JSON corrotto o assente → default (mai crash).
+   * - Merge con default per campi mancanti (forward-compat).
+   * @returns {{ v: number, shiny: boolean, capture: boolean }}
+   */
+  function getSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      // Merge con default per campi mancanti (forward-compat)
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  /**
+   * Scrive settings (read-modify-write per preservare campi futuri).
+   * - Patch parziale: ogni chiave passata viene mergiata sullo stato corrente.
+   * - `v` forzato allo schema corrente (mai retrocesso da patch malevole).
+   * - Silenzioso su errore (localStorage pieno/privato): il gioco non deve
+   *   crashare per colpa dei nostri toggle.
+   * @param {object} patch - Campi da aggiornare (es. { shiny: true })
+   */
+  function setSettings(patch) {
+    try {
+      const current = getSettings();
+      const merged = { ...current, ...patch, v: DEFAULT_SETTINGS.v };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+    } catch (e) {
+      // silenzioso
+    }
+  }
+
+  return {
+    createBackup: createBackup,
+    validatePostWrite: validatePostWrite,
+    writeSave: writeSave,
+    readSave: readSave,
+    serializeBigInt: serializeBigInt,
+    sanitizeSavedData: sanitizeSavedData,
+```
+
+</details>
+
+
+---
+
+<sub>26s</sub>
+
+### `bash`
+
+**Confirm branch ancestry and documentation state**
+
+$ git branch --show-current && git --no-pager log --oneline --decorate --all --graph -12
+
+<details>
+<summary>15 lines</summary>
+
+```
+docs/auto-update-34638510238
+* 1c2d86c (origin/docs/auto-update-34631821182) [create-pull-request] automated change
+* 7c07681 (HEAD -> docs/auto-update-34638510238, origin/master, master) fix(ci): use changes_detected output from git-auto-commit-action for PR step
+| * 7e67bd4 (origin/docs/auto-update-34631350756) docs: auto-update via GitHub Copilot [CI]
+|/  
+* 2d9b71d fix(ci): add branch input to git-auto-commit (create_branch needs non-empty branch name)
+* 51dca4f fix(ci): create_branch for docs auto-commit; workflow_dispatch with target_version for changelog
+* 920fada fix(ci): pass file path to copilot --share
+* 4762a75 fix(ci): pass COPILOT_GITHUB_TOKEN to copilot CLI in docs-automation
+* cabee13 fix(ci): remove --timeout flag from copilot CLI invocation (unsupported option)
+* 46adbf0 fix(ci): quote deny-tool globs in docs-automation (bash subshell error)
+* c67354b docs: repo polish + Copilot docs automation (README, CHANGELOG, LICENSE, workflows)
+* 12841bc (tag: v1.3.0) docs: feature table + build v1.3.0
+* 6e8f3e5 feat(ui): battle tab with shiny/capture toggles + wiring
+<shellId: 7 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>35s</sub>
+
+### Copilot
+
+The documentation drift is limited to the feature table and one inaccurate Roll Controller description: settings persistence is implemented but omitted, and the controller exposes two toggles plus sliders rather than three toggles. I’ll correct those claims and clarify shiny coverage.
+
+---
+
+<sub>35s</sub>
+
+### `apply_patch`
+
+<details>
+<summary>Arguments</summary>
+
+```json
+"*** Begin Patch\n*** Update File: /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md\n@@\n-| ✨ Always Shiny | Force shiny encounters. Bosses, rivals and legendaries are deliberately bypassed. |\n+| ✨ Always Shiny | Force shiny encounters, including bosses, rivals and legendaries. |\n | 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |\n-| 🎲 Roll Controller | 3 honest toggles operating on real roll values (no cosmetic probabilities), with real itemcount scaling. |\n+| 🎲 Roll Controller | Two honest toggles operating on real roll values (no cosmetic probabilities), with luck and item-count controls. |\n | 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |\n | 💰 Money Override | Set the in-game currency value. BigInt-safe. |\n | 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |\n | ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |\n+| ⚙️ Settings persistence | Store shiny and capture toggle settings between sessions. |\n*** End Patch\n"
+```
+
+</details>
+
+```
+Modified 1 file(s): /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md
+```
+
+
+---
+
+<sub>38s</sub>
+
+### `bash`
+
+**Review documentation diff and worktree scope**
+
+$ git --no-pager diff -- README.md CHANGELOG.md docs/COMPATIBILITY.md docs/CONTRIBUTING.md && printf '\n--- status ---\n' && git status --short
+
+<details>
+<summary>21 lines</summary>
+
+```diff
+diff --git a/README.md b/README.md
+index 5236e24..9dc640a 100644
+--- a/README.md
++++ b/README.md
+@@ -10,13 +10,14 @@ A free, open-source userscript that unlocks extra features for the **browser ver
+ 
+ | Feature | Description |
+ | --- | --- |
+-| ✨ Always Shiny | Force shiny encounters. Bosses, rivals and legendaries are deliberately bypassed. |
++| ✨ Always Shiny | Force shiny encounters, including bosses, rivals and legendaries. |
+ | 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |
+-| 🎲 Roll Controller | 3 honest toggles operating on real roll values (no cosmetic probabilities), with real itemcount scaling. |
++| 🎲 Roll Controller | Two honest toggles operating on real roll values (no cosmetic probabilities), with luck and item-count controls. |
+ | 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |
+ | 💰 Money Override | Set the in-game currency value. BigInt-safe. |
+ | 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |
+ | ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
++| ⚙️ Settings persistence | Store shiny and capture toggle settings between sessions. |
+ 
+ > UI and utility modules that back these features are listed in [Structure](#structure).
+ 
+
+--- status ---
+ M README.md
+<shellId: 8 completed with exit code 0>
+```
+
+</details>
+
+
+---
+
+<sub>38s</sub>
+
+### `bash`
+
+**Check changelog order and release metadata**
+
+$ awk '/^## \[/{print NR ":" $0}' CHANGELOG.md && printf '\n--- release references ---\n' && rg -n 'v1\.3\.0|v3\.1\.8|2026-09-11' README.md CHANGELOG.md docs/COMPATIBILITY.md docs/CONTRIBUTING.md
+
+<details>
+<summary>10 lines</summary>
+
+```
+3:## [Unreleased]
+8:## [1.3.0] - 2026-09-11
+19:## [1.2.1] - 2026-09-11
+23:## [1.2.0] - 2026-09-11
+27:## [1.1.1] - 2026-09-11
+31:## [1.1.0] - 2026-09-10
+40:## [1.0.0] - 2026-09-10
+/bin/bash: line 1: rg: command not found
+
+--- release references ---
+<shellId: 9 completed with exit code 127>
+```
+
+</details>
+
+
+---
+
+<sub>38s</sub>
+
+### `rg`
+
+**Always Shiny|Catch Any|Roll Controller|Skill Tree Editor|Money Override|Voucher Editor|Battle tab|Settings persistence**
+
+"Always Shiny|Catch Any|Roll Controller|Skill Tree Editor|Money Override|Voucher Editor|Battle tab|Settings persistence" (README.md)
+
+<details>
+<summary>14 matches</summary>
+
+```
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:13:| ✨ Always Shiny | Force shiny encounters, including bosses, rivals and legendaries. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:14:| 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:15:| 🎲 Roll Controller | Two honest toggles operating on real roll values (no cosmetic probabilities), with luck and item-count controls. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:16:| 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:17:| 💰 Money Override | Set the in-game currency value. BigInt-safe. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:18:| 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:19:| ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:20:| ⚙️ Settings persistence | Store shiny and capture toggle settings between sessions. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:38:├── encounter-override.js      — Always Shiny
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:39:├── capture-override.js        — Catch Any (L2 wrapper + L1 fallback)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:40:├── roll-controller.js         — Roll Controller (3 toggles + itemcount)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:41:├── skill-tree-editor.js       — Skill Tree Editor
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:42:├── money-override.js          — Money Override (BigInt-safe)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:43:├── voucher-editor.js          — Voucher Editor
+```
+
+</details>
+
+
+---
+
+<sub>41s</sub>
+
+### `apply_patch`
+
+<details>
+<summary>Arguments</summary>
+
+```json
+"*** Begin Patch\n*** Update File: /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md\n@@\n-├── roll-controller.js         — Roll Controller (3 toggles + itemcount)\n+├── roll-controller.js         — Roll Controller (2 toggles + luck/item-count controls)\n*** End Patch\n"
+```
+
+</details>
+
+```
+Modified 1 file(s): /home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md
+```
+
+
+---
+
+<sub>44s</sub>
+
+### `bash`
+
+**Validate documentation formatting and final scope**
+
+$ git diff --check && git --no-pager diff --stat && git status --short
+
+```
+README.md | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+ M README.md
+<shellId: 10 completed with exit code 0>
+```
+
+
+---
+
+<sub>44s</sub>
+
+### `rg`
+
+**3 honest|3 toggles|3 toggles \+|deliberately bypassed**
+
+"3 honest|3 toggles|3 toggles \+|deliberately bypassed" in *.md
+
+```
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:42:- feat: complete MVP — roll controller (3 honest toggles + itemcount), skill editor, money override (fa9db79)
+```
+
+
+---
+
+<sub>44s</sub>
+
+### `rg`
+
+**^## \[Unreleased\]\n<!-- auto-filled by CI -->**
+
+"^## \[Unreleased\]\n<!-- auto-filled by CI -->" (CHANGELOG.md)
+
+```
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:3:## [Unreleased]
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:4:<!-- auto-filled by CI -->
+```
+
+
+---
+
+<sub>44s</sub>
+
+### `rg`
+
+**v1\.3\.0|v3\.1\.8|2026-09-11**
+
+"v1\.3\.0|v3\.1\.8|2026-09-11" in {README.md,CHANGELOG.md,docs/COMPATIBILITY.md,docs/CONTRIBUTING.md}
+
+<details>
+<summary>11 matches</summary>
+
+```
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:3:[![Release](https://img.shields.io/badge/Release-v1.3.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.3.0)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:4:[![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/README.md:19:| ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/docs/COMPATIBILITY.md:7:| Game | PokeVoid — pokevoid.com (browser build) | Build v3.1.8 (bundle `index-BA2n6IsS.js`, ~25.7 MB) |
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:8:## [1.3.0] - 2026-09-11
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:17:- docs: feature table + v1.3.0 build (12841bc)
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:19:## [1.2.1] - 2026-09-11
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:23:## [1.2.0] - 2026-09-11
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:27:## [1.1.1] - 2026-09-11
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:48:[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...HEAD
+/home/runner/work/PokeVoid-Unlocked/PokeVoid-Unlocked/CHANGELOG.md:49:[1.3.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.1...v1.3.0
+```
+
+</details>
+
+
+---
+
+<sub>48s</sub>
+
+### Copilot
+
+- Updated `README.md` to clarify Always Shiny coverage, accurately describe Roll Controller controls, and document settings persistence.
+- Updated the structure section to match the current Roll Controller implementation.
+- Confirmed `CHANGELOG.md` ordering, release metadata, commit references, badges, game version, and CI placeholder remain consistent.
+- Reviewed `docs/COMPATIBILITY.md` and `docs/CONTRIBUTING.md`; no changes were needed.
+- No code, license, workflow, generated output, staging, or commits were modified.
+
+---
+
+<sub>Generated by [GitHub Copilot CLI](https://github.com/features/copilot/cli)</sub>
