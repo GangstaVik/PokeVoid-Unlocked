@@ -126,6 +126,7 @@ jobs:
         with:
           commit_message: 'docs: auto-update via GitHub Copilot [CI]'
           file_pattern: 'README.md CHANGELOG.md LICENSE docs/** .github/copilot-instructions.md .github/prompts/**'
+          create_branch: true
 
       - name: Open documentation PR
         if: steps.commit.outputs.changes == 'true'
