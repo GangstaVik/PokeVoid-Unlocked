@@ -28,22 +28,33 @@
 //   new gte(scene, targets[0]%2, cursor, args?.[0])
 //   MASTER_BALL ballMult = -1 → catch 100%, VOID_BALL = -2 → catch 100%
 //
-// Strategia L2: wrapper generico su CommandPhase.prototype.handleCommand.
+// Strategia L2 (v1.4 Task 0): wrapper generico su CommandPhase.prototype.handleCommand.
 //   1. Chiamo il gate nativo → lo nativo giudica se accetta o blocca.
 //   2. Se accetta (return true + turnCommands assegnato) → passo through.
-//   3. Se blocca + toggle ON + L2 verificato → forza injection nel ramo successo.
-//      a. Scrivo turnCommands con command/cursor/args/targets/skip
-//      b. ui.clearText() → cancello il testo di blocco
-//      c. phase.end() → termina la CommandPhase
-//      d. return true → il chiamante procede normalmente
-//   4. Dopo 3 errori → auto-degrade a L1 (pokeballCounts=99).
+//   3. Se blocca + toggle ON + comando BALL + NON escluso → force inject.
+//      NOTE v1.4:
+//      - level2Verified NON è più nel gate (rimosso): l'inject gira al primo
+//        tentativo; level2Verified resta solo come dato di report (confermato
+//        SOLO su successo nativo di comando BALL = fallback 1, mai FIGHT/etc.).
+//      - Esclusioni deterministiche fail-closed: rival (battleType===TRAINER &&
+//        gameMode.checkIfRival(scene)), biome END, wave pre-final, multi-target
+//        (nemici attivi != 1), boss-major (isBoss() && bossSegmentIndex>=1;
+//        segmento non determinabile ⇒ escluso).
+//      - L1 backstop live: pokeballCounts=99 re-armato ad OGNI CommandPhase push.
 //
-// L1 fallback (passivo): su ogni CommandPhase, setta pokeballCounts = 99 per
-// tutti i tipi. Risolve solo il blocco "count=0"; i gate boss/rival/etc.
-// richiedono L2.
+// Override probabilità (nuovo, v1.4): il roll di cattura usa t.randSeedInt(65536)
+// chiamato sul POKEMON bersaglio (3 draw nel tween onRepeat di
+// AttemptCapturePhase.start). A tentativo ARMATO sovrascriviamo randSeedInt
+// dell'istanza pokemon con () => -1 → -1 < m per ogni m>=0 (m=0 incluso)
+// ⇒ cattura garantita. Token-arm: armato nel force-inject (pokemon + turno),
+// consumato allo start della AttemptCapturePhase (match per identità pokemon),
+// restore del randSeedInt in failCatch/catch/end; i token pendenti vengono
+// invalidati all'inizio del turno successivo (TurnInitPhase/TurnStartPhase).
+// Limite noto: !species.isObtainable() && c!==-2 → failCatch prima del roll
+// (non sovrascrivibile senza reimplementare start()).
 //
-// NOTA: bundle v3.1.8 con mangling OFF → CommandPhase.handleCommand è
-// preservato in chiaro; il wrapper è trasparente.
+// NOTA: bundle v3.1.8 con mangling OFF → nomi di classe preservati
+// (TurnInitPhase/TurnStartPhase/AttemptCapturePhase); wrapper trasparente.
 const PvuCaptureOverride = (() => {
   const LOG_PREFIX = '[PvuCaptureOverride]';
   const CAPTURE_PATCHED = Symbol.for('pvuCapturePatched');
@@ -55,7 +66,7 @@ const PvuCaptureOverride = (() => {
   const state = {
     enabled: false,
     level: 0,                // 0 = off, 1 = L1 (grant balls), 2 = L2 (wrapper)
-    level2Verified: false,   // true dopo il primo successo nativo osservato
+    level2Verified: false,   // v1.4: report only — BALL confermato su successo nativo
     commandProto: null,      // prototype di CommandPhase (scoperto a runtime)
     ballCommandId: null,     // ID del comando BALL nel Command enum (scoperto)
     injectedCount: 0,        // catture forzate con successo
@@ -64,6 +75,14 @@ const PvuCaptureOverride = (() => {
     hooksApplied: false,     // wrapper installato su CommandPhase.prototype
     l1Applied: false,        // L1 applicato almeno una volta
     _discoveryRegistered: false, // discovery interceptor registrato
+    // V1.4: override probabilità di cattura (token-arm)
+    capturedCount: 0,        // catture realizzate (catch con override armato)
+    rollOverrideReady: null, // tri-state: null=non determinato, true=wrappabile, false=NON attivo
+    rollOverrideArmed: false,// transitorio: randSeedInt patched in questo istante
+    captureTokens: [],       // [{ pokemon, turn, pokeballType }] armati in force-inject
+    _attemptRegistered: false,
+    _turnBoundaryRegistered: false,
+    _l1BackstopRegistered: false,
   };
 
   let originalHandleCommand = null;
@@ -111,6 +130,287 @@ const PvuCaptureOverride = (() => {
       state.level2Verified = false;
       log('Auto-degrade a L1 dopo', state.errorCount, 'errori del wrapper');
     }
+  }
+
+  // ─── V1.4: OVERRIDE PROBABILITÀ DI CATTURA (TOKEN-ARM) ────────────────
+  // Enum bundle v3.1.8: Ua.BattleType.WILD=0, TRAINER=1; k.BiomeId.END=50.
+
+  const BATTLE_TYPE_TRAINER = 1;
+  const BIOME_END = 50;
+
+  function removeTokenAt(idx) {
+    if (idx >= 0 && idx < state.captureTokens.length) {
+      state.captureTokens.splice(idx, 1);
+    }
+  }
+
+  function clearCaptureTokens(reason) {
+    if (!state.captureTokens.length) return;
+    if (reason) log('Token cattura invalidati (' + reason + ')');
+    state.captureTokens = [];
+  }
+
+  /**
+   * Esclusioni deterministiche (fail-closed) per il force-inject.
+   * Identiche ai gate deterministici nativi; l'unico caso "non deterministico"
+   * del nativo (bypass casuale 1/10000) non viene replicato.
+   * @returns {boolean} true = escludi (NON iniettare)
+   */
+  function isExcluded(scene) {
+    try {
+      var battle = scene.currentBattle;
+      if (!battle) return true;
+
+      // 1. rival/scripted: battleType===TRAINER && gameMode.checkIfRival(scene)
+      var gMode = scene.gameMode;
+      if (battle.battleType === BATTLE_TYPE_TRAINER && gMode &&
+          typeof gMode.checkIfRival === 'function') {
+        var rival = false;
+        try { rival = gMode.checkIfRival(scene) === true; } catch (e) {}
+        if (rival) { log('Esclusione: rival (scripted)'); return true; }
+      }
+
+      // 2. multi-target: deve esserci esattamente 1 nemico attivo
+      var enemies = (scene.getEnemyField ? (scene.getEnemyField() || []) : [])
+        .filter(function (p) {
+          return p && typeof p.isActive === 'function' && p.isActive(true);
+        });
+      if (enemies.length > 1) {
+        log('Esclusione: multi-target (' + enemies.length + ' nemici attivi)');
+        return true;
+      }
+      if (enemies.length < 1) {
+        log('Esclusione: nessun nemico attivo');
+        return true;
+      }
+
+      // 3. biome END
+      var arena = scene.arena;
+      if (arena && typeof arena.biomeType === 'number' && arena.biomeType === BIOME_END) {
+        log('Esclusione: biome END');
+        return true;
+      }
+
+      // 4. wave pre-final
+      if (gMode && typeof gMode.isWavePreFinal === 'function') {
+        var preFinal = false;
+        try { preFinal = gMode.isWavePreFinal(scene) === true; } catch (e) {}
+        if (preFinal) { log('Esclusione: wave pre-final'); return true; }
+      }
+
+      // 5. boss-major segment >= 1 (fail-closed: segmento ignoto ⇒ escluso)
+      var target = enemies[0];
+      if (target && typeof target.isBoss === 'function' && target.isBoss()) {
+        var seg = target.bossSegmentIndex;
+        if (typeof seg !== 'number' || seg >= 1) {
+          log('Esclusione: boss-major (segmentIndex=' + seg + ')');
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      warn('isExcluded fallito, fail-closed:', e);
+      return true;
+    }
+  }
+
+  /**
+   * Arma l'override probabilità: sostituisce pokemon.randSeedInt con () => -1.
+   * -1 < m per ogni m>=0 (m=0 incluso: -1 < 0 true), quindi il primo draw
+   * del tween di AttemptCapturePhase passa sempre. Restore in disarmCapture.
+   * @returns {boolean} true se patchato
+   */
+  function armCapture(self, pokemon) {
+    if (!pokemon || typeof pokemon.randSeedInt !== 'function') return false;
+    if (!pokemon.__pvuRandPatched) {
+      pokemon.__pvuOrigRandSeedInt = pokemon.randSeedInt;
+      pokemon.randSeedInt = function () { return -1; };
+      pokemon.__pvuRandPatched = true;
+    }
+    self.__pvuPokemon = pokemon;
+    self.__pvuArmed = true;
+    state.rollOverrideArmed = true;
+    return true;
+  }
+
+  /**
+   * Disarma (idempotente): ripristina il randSeedInt originale sul pokemon.
+   */
+  function disarmCapture(self) {
+    if (!self) return;
+    var pokemon = self.__pvuPokemon;
+    if (pokemon && pokemon.__pvuRandPatched && pokemon.__pvuOrigRandSeedInt) {
+      pokemon.randSeedInt = pokemon.__pvuOrigRandSeedInt;
+      delete pokemon.__pvuOrigRandSeedInt;
+      delete pokemon.__pvuRandPatched;
+    }
+    self.__pvuPokemon = null;
+    self.__pvuArmed = false;
+    state.rollOverrideArmed = false;
+  }
+
+  /**
+   * Cerca il token per la AttemptCapturePhase corrente.
+   * Match primario: identità dell'oggetto pokemon (phase.getPokemon() ===
+   * token.pokemon). Fallback (getPokemon non disponibile): pokeballType uguale
+   * e stesso turno. Token stantio (turno cambiato) ⇒ rimosso.
+   */
+  function findTokenForPhase(phaseObj) {
+    if (!state.captureTokens.length) return null;
+    var pokemon = null;
+    try {
+      if (phaseObj && typeof phaseObj.getPokemon === 'function') {
+        pokemon = phaseObj.getPokemon();
+      }
+    } catch (e) { /* phase non ancora iniziata */ }
+
+    var battle = phaseObj && phaseObj.scene ? phaseObj.scene.currentBattle : null;
+    for (var i = state.captureTokens.length - 1; i >= 0; i--) {
+      var tk = state.captureTokens[i];
+      if (battle && typeof battle.turn === 'number' && typeof tk.turn === 'number' &&
+          battle.turn !== tk.turn) {
+        removeTokenAt(i); // stantio → token morto
+        continue;
+      }
+      if (pokemon) {
+        if (tk.pokemon === pokemon) {
+          tk.pokemon = pokemon;
+          return tk;
+        }
+      } else if (tk.pokeballType !== undefined && tk.pokeballType === phaseObj.pokeballType) {
+        return tk;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Wrappa le funzioni per-istanza della AttemptCapturePhase:
+   *  - start: trova il token → armCapture (patch randSeedInt PRIMA di orig)
+   *  - catch: conta capturedCount se armato + restore (try/finally-semantics)
+   *  - failCatch: restore
+   *  - end: restore (idempotente)
+   * Idempotente per istanza (__pvuCaptureWired).
+   */
+  function wireAttemptPhase(phaseObj) {
+    if (!phaseObj || phaseObj.__pvuCaptureWired) return;
+    if (typeof phaseObj.start !== 'function' ||
+        typeof phaseObj.catch !== 'function' ||
+        typeof phaseObj.failCatch !== 'function') {
+      if (state.rollOverrideReady === null) {
+        state.rollOverrideReady = false;
+        warn('AttemptCapturePhase senza metodi wrappabili: override probabilità NON attivo');
+      }
+      return;
+    }
+    if (state.rollOverrideReady === null) {
+      state.rollOverrideReady = true;
+    }
+
+    var origStart = phaseObj.start;
+    phaseObj.start = function () {
+      var self = this;
+      try {
+        var token = findTokenForPhase(self);
+        if (token && token.pokemon) {
+          if (armCapture(self, token.pokemon)) {
+            removeTokenAt(state.captureTokens.indexOf(token));
+            log('Override probabilità armato: cattura #' + state.injectedCount + ' (randSeedInt → -1)');
+          }
+        }
+      } catch (e) {
+        warn('start wrapper error:', e);
+      }
+      return origStart.apply(self, arguments);
+    };
+
+    var origCatch = phaseObj.catch;
+    phaseObj.catch = function () {
+      var self = this;
+      try {
+        if (self.__pvuArmed) {
+          state.capturedCount++;
+          log('Cattura realizzata (#' + state.capturedCount + ')');
+        }
+        disarmCapture(self);
+      } catch (e) {
+        warn('catch wrapper error:', e);
+      }
+      return origCatch.apply(self, arguments);
+    };
+
+    var origFail = phaseObj.failCatch;
+    phaseObj.failCatch = function () {
+      var self = this;
+      try { disarmCapture(self); } catch (e) {}
+      return origFail.apply(self, arguments);
+    };
+
+    if (typeof phaseObj.end === 'function') {
+      var origEnd = phaseObj.end;
+      phaseObj.end = function () {
+        var self = this;
+        try { disarmCapture(self); } catch (e) {}
+        return origEnd.apply(self, arguments);
+      };
+    }
+
+    phaseObj.__pvuCaptureWired = true;
+    log('AttemptCapturePhase wrappata (override probabilità attivo)');
+  }
+
+  /**
+   * Interceptor tentativi di cattura (push + unshift): aggancia la
+   * AttemptCapturePhase appena creata.
+   */
+  function attemptInterceptor(phaseObj) {
+    if (!state.enabled) return;
+    if (!phaseObj || typeof phaseObj !== 'object' || !phaseObj.constructor) return;
+    try {
+      var name = phaseObj.constructor.name || '';
+      if (name.indexOf('AttemptCapturePhase') === 0) {
+        wireAttemptPhase(phaseObj);
+      }
+    } catch (e) {
+      warn('attempt interceptor error:', e);
+    }
+  }
+
+  /**
+   * Interceptor confine di turno (push + unshift): invalida i token pendenti
+   * quando inizia un nuovo turno (TurnInitPhase/TurnStartPhase).
+   */
+  function turnBoundaryInterceptor(phaseObj) {
+    if (!state.captureTokens.length) return;
+    if (!phaseObj || typeof phaseObj !== 'object' || !phaseObj.constructor) return;
+    try {
+      var name = phaseObj.constructor.name || '';
+      if (name === 'TurnInitPhase' || name === 'TurnStartPhase') {
+        clearCaptureTokens(name);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * L1 backstop live: ri-arma 99 pokeballs ad ogni CommandPhase push
+   * (non solo al boot) — risolve il gate count=0 anche se scade in corsa.
+   */
+  function l1BackstopInterceptor(phaseObj) {
+    if (!state.enabled) return;
+    if (!phaseObj || typeof phaseObj !== 'object') return;
+    try {
+      if (typeof phaseObj.handleCommand !== 'function' ||
+          typeof phaseObj.fieldIndex !== 'number') return;
+      var scene = phaseObj.scene;
+      if (!scene) {
+        var bridge = window.__pvu.bridge;
+        if (bridge && typeof bridge.getBattleScene === 'function') {
+          scene = bridge.getBattleScene();
+        }
+      }
+      applyLevel1(scene);
+    } catch (e) { /* ignore */ }
   }
 
   // ─── L1: GRANT BALL COUNTS ──────────────────────────────────────────
@@ -167,8 +467,10 @@ const PvuCaptureOverride = (() => {
       var enemies = (scene.getEnemyField() || []).filter(function(p) {
         return p && typeof p.isActive === 'function' && p.isActive(true);
       });
-      if (!enemies.length) {
-        log('forceInject: nessun nemico attivo, skip');
+      // V1.4: override solo bersaglio singolo (ridondante con isExcluded,
+      // difesa in profondità contro race condition multi-target)
+      if (enemies.length !== 1) {
+        log('forceInject: nemici attivi =', enemies.length, '→ inject solo bersaglio singolo, skip');
         return false;
       }
 
@@ -185,6 +487,30 @@ const PvuCaptureOverride = (() => {
       turnCommands[fi] = tc;
       if (fi > 0 && turnCommands[fi - 1]) {
         turnCommands[fi - 1].skip = true;
+      }
+
+      // V1.4: token-arm per l'override probabilità di cattura
+      var target = enemies[0];
+      state.captureTokens.push({
+        pokemon: target,
+        turn: (scene.currentBattle && typeof scene.currentBattle.turn === 'number')
+          ? scene.currentBattle.turn : 0,
+        pokeballType: n
+      });
+
+      // V1.4: pre-grant economico per snatch trainer (la cattura forza la
+      // deduzione di getRequiredMoneyForPokeBuy; rival esclusi qui perché
+      // esclusi da isExcluded prima del force-inject)
+      var battle = scene.currentBattle;
+      if (battle && battle.battleType === BATTLE_TYPE_TRAINER) {
+        var cost = (typeof scene.getRequiredMoneyForPokeBuy === 'function')
+          ? scene.getRequiredMoneyForPokeBuy() : 0;
+        var moneyOverride = window.__pvu.moneyOverride;
+        if (typeof scene.money === 'number' && scene.money < cost &&
+            moneyOverride && typeof moneyOverride.setMoney === 'function') {
+          moneyOverride.setMoney(cost);
+          log('Money pre-granted per trainer snatch:', cost);
+        }
       }
 
       // Cancella il testo di blocco e il suo pending prompt
@@ -244,13 +570,16 @@ const PvuCaptureOverride = (() => {
       // 1. Chiamo il gate nativo
       var result = original.apply(this, args);
 
-      // 2. Successo nativo → impara ballCommandId (se non noto)
+      // 2. Successo nativo → impara ballCommandId SOLO per comando BALL
+      //    (fallback 1), mai per FIGHT/etc. — evita apprendimento avvelenato.
       if (result === true && turnCommands && turnCommandsAlreadyAssigned(turnCommands, fi)) {
         var tcCmd = turnCommands[fi].command;
-        if (state.ballCommandId === null && tcCmd !== undefined) {
-          state.ballCommandId = tcCmd;
-          state.level2Verified = true;
-          log('L2 verificato: ballCommandId =', state.ballCommandId);
+        if (tcCmd === BALL_CMD_ID_FALLBACK && t === BALL_CMD_ID_FALLBACK) {
+          if (state.ballCommandId === null) {
+            state.ballCommandId = tcCmd;
+            state.level2Verified = true; // report only (v1.4, NON è nel gate)
+            log('ID BALL confermato nativamente: ballCommandId =', state.ballCommandId);
+          }
         }
         return true;
       }
@@ -258,12 +587,16 @@ const PvuCaptureOverride = (() => {
       // 3. Nativo è tornato true ma turnCommands non assegnato → anomal, passa
       if (result === true) return true;
 
-      // 4. Bloccato → valuta force inject
-      if (!state.enabled || !state.level2Verified) return result;
-
-      // Verifica: era un comando BALL?
+      // 4. Bloccato → valuta force inject (level2Verified NON è più nel gate)
       var cmd = getBallCommandId();
-      if (cmd !== null && t !== cmd) return result;
+      if (cmd === null || t !== cmd) return result;
+
+      // Esclusioni deterministiche (rival/END/pre-final/multi-target/boss-major)
+      if (isExcluded(scene)) {
+        state.blockedCount++;
+        log('Azione BALL bloccata dal nativo e DECLINATA per esclusione (#', state.blockedCount, ')');
+        return result;
+      }
 
       // Force inject
       return forceInject(scene, turnCommands, fi, t, n, s, phase);
@@ -396,6 +729,33 @@ const PvuCaptureOverride = (() => {
       log('Discovery interceptor registrato');
     }
 
+    // V1.4: interceptor tentativi cattura (AttemptCapturePhase, push+unshift)
+    if (!state._attemptRegistered && phaseObserver &&
+        typeof phaseObserver.onPhasePush === 'function') {
+      phaseObserver.onPhasePush(attemptInterceptor);
+      phaseObserver.onPhaseUnshift(attemptInterceptor);
+      state._attemptRegistered = true;
+      log('Attempt-capture interceptor registrato');
+    }
+
+    // V1.4: interceptor confine di turno (invalida token pendenti)
+    if (!state._turnBoundaryRegistered && phaseObserver &&
+        typeof phaseObserver.onPhasePush === 'function') {
+      phaseObserver.onPhasePush(turnBoundaryInterceptor);
+      phaseObserver.onPhaseUnshift(turnBoundaryInterceptor);
+      state._turnBoundaryRegistered = true;
+      log('Turn-boundary interceptor registrato');
+    }
+
+    // V1.4: L1 backstop live (99 balls a ogni CommandPhase push)
+    if (!state._l1BackstopRegistered && phaseObserver &&
+        typeof phaseObserver.onPhasePush === 'function') {
+      phaseObserver.onPhasePush(l1BackstopInterceptor);
+      phaseObserver.onPhaseUnshift(l1BackstopInterceptor);
+      state._l1BackstopRegistered = true;
+      log('L1 backstop interceptor registrato');
+    }
+
     // Tentativo diretto (senza attendere il prossimo phase push)
     if (!state.hooksApplied) {
       discoverAndHook();
@@ -475,6 +835,11 @@ const PvuCaptureOverride = (() => {
       injectedCount: state.injectedCount,
       blockedCount: state.blockedCount,
       errorCount: state.errorCount,
+      // V1.4
+      capturedCount: state.capturedCount,
+      rollOverrideReady: state.rollOverrideReady,
+      rollOverrideArmed: state.rollOverrideArmed,
+      rollOverrideWired: state._attemptRegistered,
     };
   }
 
@@ -493,11 +858,18 @@ const PvuCaptureOverride = (() => {
     } catch (e) {
       warn('destroy fallito:', e);
     }
+    clearCaptureTokens('destroy');
     originalHandleCommand = null;
     state.hooksApplied = false;
     state.commandProto = null;
     state.level2Verified = false;
     state.ballCommandId = null;
+    state.capturedCount = 0;
+    state.rollOverrideReady = null;
+    state.rollOverrideArmed = false;
+    state._attemptRegistered = false;
+    state._turnBoundaryRegistered = false;
+    state._l1BackstopRegistered = false;
     log('destroy');
   }
 

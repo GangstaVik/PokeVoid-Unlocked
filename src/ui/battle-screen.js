@@ -58,7 +58,7 @@ const PvuBattleScreen = (() => {
     var captureState = window.__pvu.captureOverride?.getState?.() || {};
     var captureResult = createToggle(
       'Cattura Tutto',
-      'Qualsiasi lancio di Pokeball cattura sempre il Pokemon (L2 wrapper, fallback L1)',
+      'Quando il toggle Cattura è attivo: la prima Pokéball su un bersaglio singolo (non rivale/non scripted) cattura sempre.',
       !!captureState.enabled,
       function(val) {
         window.__pvu.captureOverride?.toggleCapture?.(val);
@@ -153,17 +153,33 @@ const PvuBattleScreen = (() => {
 
     var captureStatusEl = containerEl.querySelector('#pvu-battle-capture-status');
     if (captureStatusEl && captureState.enabled) {
-      var levelText = captureState.level === 2
-        ? (captureState.level2Verified ? 'L2 (wrapper) ✅' : 'L2 (wrapper) ⏳ in verifica')
-        : captureState.level === 1
-          ? 'L1 (fallback) ⚠️'
-          : '—';
-      var captured = captureState.injectedCount || 0;
+      var levelText = '—';
+      if (captureState.level === 2) {
+        if (!captureState.hooksApplied) {
+          levelText = 'wrapper NON attivo (in attesa battle)';
+        } else {
+          // Ladder tri-state onesto: wrapper → id confermato → override armato
+          var rungs = ['wrapper attivo'];
+          if (captureState.ballCommandId !== null) rungs.push('id confermato');
+          if (captureState.rollOverrideReady === true) rungs.push('override armato');
+          levelText = rungs.join(' / ');
+          if (captureState.rollOverrideReady === false) {
+            levelText = rungs[0] + ' — override probabilità NON attivo';
+          }
+        }
+      } else if (captureState.level === 1) {
+        levelText = 'L1 (fallback) ⚠️';
+      }
+      var badge = (captureState.level === 2 && captureState.rollOverrideReady === true) ? ' ✅' : '';
+      var forced = captureState.injectedCount || 0;
+      var realized = captureState.capturedCount || 0;
       var errors = captureState.errorCount || 0;
-      captureStatusEl.textContent =
-        'Livello: ' + levelText +
-        ' | Catture forzate: ' + captured +
-        ' | Errori: ' + errors;
+      var txt =
+        'Livello: ' + levelText + badge +
+        ' | Catture forzate: ' + forced +
+        ' | Catture realizzate: ' + realized;
+      if (errors > 0) txt += ' | Errori: ' + errors;
+      captureStatusEl.textContent = txt;
       captureStatusEl.className = 'pvu-status ' +
         (errors >= 3 ? 'err' : errors > 0 ? 'warn' : 'ok');
     } else if (captureStatusEl) {
