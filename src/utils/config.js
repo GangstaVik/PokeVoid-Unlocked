@@ -1,6 +1,6 @@
 // src/utils/config.js — Costanti e compat map
 const PvuConfig = {
-  VERSION: '1.3.0',
+  VERSION: '1.3.1',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
