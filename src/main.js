@@ -62,7 +62,9 @@
     const bridge = pvu.bridge;
     if (!bridge) return;
 
-    // Prova a catturare battle scene
+    // FIX 5: lo stop è condizionato a getBattleScene() (che include il fallback
+    // CanvasPool), NON a getGame() — quindi il loop si ferma anche se
+    // getGame() è null ma la battle scene è raggiungibile via CanvasPool.
     const scene = bridge.getBattleScene();
     if (!scene) {
       if (hookAttempts > 60) {

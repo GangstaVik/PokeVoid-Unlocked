@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.1.0
+// @version      1.1.1
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
@@ -17,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.1.0',
+  VERSION: '1.1.1',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
@@ -543,15 +543,18 @@ const PvuGameBridge = (() => {
         return false;
       }
 
+      // FIX 3: guardia anti-doppio-hook — idempotente, safe da ri-chiamare
+      if (Phaser.Game[Symbol.for('pvuPatched')]) {
+        log('hookPhaserGame già applicato, skip');
+        return true;
+      }
+
       const OriginalGame = Phaser.Game;
-      let gameCaptured = false;
 
       Phaser.Game = function() {
         const instance = OriginalGame.apply(this, arguments) || this;
-        // Salva l'istanza
         STATE.gameInstance = instance;
         window.__pvu_game = instance;
-        gameCaptured = true;
         log('Phaser.Game catturato via constructor hook');
         return instance;
       };
@@ -559,6 +562,9 @@ const PvuGameBridge = (() => {
       // Copia prototype
       Phaser.Game.prototype = OriginalGame.prototype;
       Phaser.Game.prototype.constructor = Phaser.Game;
+
+      // FIX 3: marca come patchato — next call ritorna true senza re-wrap
+      Phaser.Game[Symbol.for('pvuPatched')] = true;
 
       log('Hook Phaser.Game applicato (attende istanza...)');
       return true;
@@ -649,6 +655,9 @@ const PvuGameBridge = (() => {
 
   /**
    * Get game instance (da tutti i livelli).
+   * FIX 2: auto-riparante — se i livelli cache falliscono, prova CanvasPool
+   * direttamente (NON getBattleScene, evita ricorsione getGame→getBattleScene→getGame)
+   * e ri-esegue hookPhaserGame se Phaser è arrivato dopo il primo tentativo.
    */
   function getGame() {
     if (STATE.gameInstance) return STATE.gameInstance;
@@ -656,6 +665,33 @@ const PvuGameBridge = (() => {
       STATE.gameInstance = window.__pvu_game;
       return STATE.gameInstance;
     }
+
+    // FIX 2a: CanvasPool diretto — stesso pool usato da getFromCanvasPool(),
+    // ma qui estraiamo entry.parent.game (l'istanza Game) senza toccare
+    // getBattleScene() (che a sua volta chiama getGame() → ricorsione).
+    try {
+      const pool = (window.Phaser && window.Phaser.Display && window.Phaser.Display.Canvas && window.Phaser.Display.Canvas.CanvasPool)
+                 || (window.Phaser && window.Phaser.CanvasPool)
+                 || null;
+      if (pool && pool.pool && pool.pool.length) {
+        const entry = pool.pool[0];
+        if (entry && entry.parent && entry.parent.game) {
+          STATE.gameInstance = entry.parent.game;
+          window.__pvu_game = entry.parent.game;
+          log('Game recuperato via CanvasPool (getGame self-heal)');
+          return STATE.gameInstance;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // FIX 2b: Phaser.Game esiste ma hook non applicato → ri-esegui
+    // hookPhaserGame (idempotente grazie alla guardia Symbol) e ritenta.
+    if (window.Phaser && window.Phaser.Game
+        && !window.Phaser.Game[Symbol.for('pvuPatched')]) {
+      hookPhaserGame();
+      if (STATE.gameInstance) return STATE.gameInstance;
+    }
+
     return null;
   }
 
@@ -787,16 +823,20 @@ const PvuGameBridge = (() => {
   /**
    * PARTE 5: rimuove il vecchio cache-first, ora preferisce LA battle scene
    * (autoritativa durante la run) prima di scandire tutte le scene del manager.
+   * FIX 1: NON early-returna su getGame() null — la battle scene può esistere
+   * via CanvasPool anche quando getGame() è ancora null (stesso pattern di
+   * getGameData qui sopra).
    */
   function findGameData() {
-    const game = getGame();
-    if (!game) return null;
-
     // 1. Battle scene prima — ha il gameData della run corrente
+    // (getBattleScene ha il fallback CanvasPool interno)
     const bs = getBattleScene();
     if (bs && bs.gameData) return bs.gameData;
 
-    // 2. Fallback: scan di tutte le scene registrate nel game
+    // 2. Solo come ultima spiaggia: game instance → scan scene registrate
+    const game = getGame();
+    if (!game) return null;
+
     if (game.scene && game.scene.scenes) {
       const scenes = game.scene.scenes;
       for (const key in scenes) {
@@ -1068,6 +1108,16 @@ const PvuPhaseObserver = (() => {
       if (hooked) {
         clearInterval(hookInterval);
         log('Phase hooks applicati');
+        return;
+      }
+      // FIX 4: stop anche se window.gameInfo esiste OPPURE la battle scene è
+      // raggiungibile via getBattleScene (fallback CanvasPool) — il phase hook
+      // può non riuscire ma il gioco è partito; il polling gameInfo continua.
+      const bridge = window.__pvu.bridge;
+      if (window.gameInfo || (bridge && bridge.getBattleScene())) {
+        clearInterval(hookInterval);
+        log('Phase hooks: gameInfo/battle scene disponibile, stop retry');
+        return;
       }
       if (hookAttempts > 30) {
         clearInterval(hookInterval);
@@ -3222,7 +3272,9 @@ window.__pvu.panel = PvuPanel;
     const bridge = pvu.bridge;
     if (!bridge) return;
 
-    // Prova a catturare battle scene
+    // FIX 5: lo stop è condizionato a getBattleScene() (che include il fallback
+    // CanvasPool), NON a getGame() — quindi il loop si ferma anche se
+    // getGame() è null ma la battle scene è raggiungibile via CanvasPool.
     const scene = bridge.getBattleScene();
     if (!scene) {
       if (hookAttempts > 60) {

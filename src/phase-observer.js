@@ -228,6 +228,16 @@ const PvuPhaseObserver = (() => {
       if (hooked) {
         clearInterval(hookInterval);
         log('Phase hooks applicati');
+        return;
+      }
+      // FIX 4: stop anche se window.gameInfo esiste OPPURE la battle scene è
+      // raggiungibile via getBattleScene (fallback CanvasPool) — il phase hook
+      // può non riuscire ma il gioco è partito; il polling gameInfo continua.
+      const bridge = window.__pvu.bridge;
+      if (window.gameInfo || (bridge && bridge.getBattleScene())) {
+        clearInterval(hookInterval);
+        log('Phase hooks: gameInfo/battle scene disponibile, stop retry');
+        return;
       }
       if (hookAttempts > 30) {
         clearInterval(hookInterval);
