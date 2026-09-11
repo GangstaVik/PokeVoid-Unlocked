@@ -58,7 +58,7 @@ jobs:
             --deny-tool='write(CHANGELOG.md)' \
             --no-ask-user \
             --share="$COPILOT_SHARE" \
-            --timeout 600000 2>&1 | tee copilot-docs.log
+            2>&1 | tee copilot-docs.log
 
       - name: GUARD — revert any change on protected paths
         run: |
