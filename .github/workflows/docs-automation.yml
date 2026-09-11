@@ -42,6 +42,7 @@ jobs:
       - name: Run Copilot docs maintenance
         env:
           COPILOT_SHARE: ${{ github.workspace }}/.copilot-share
+          COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
           mkdir -p "$COPILOT_SHARE"
