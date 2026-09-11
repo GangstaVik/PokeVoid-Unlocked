@@ -286,6 +286,51 @@ const PvuStorage = (() => {
     return 'guest';
   }
 
+  // --- Settings utente (toggle shiny / capture) ---
+  // Chiave localStorage separata dai save di gioco: mai toccata da sanitizeSavedData
+  // (che scansiona solo prefissi data_, ed esclude data_pvu_/data_backup).
+  const SETTINGS_KEY = '__pvu_settings';
+
+  // Default settings. `v` = versione schema (forward-compat: il merge in
+  // getSettings aggiunge i campi mancanti ai save scritti con schemi vecchi).
+  const DEFAULT_SETTINGS = { v: 1, shiny: false, capture: false };
+
+  /**
+   * Legge settings con fallback ai default.
+   * - JSON corrotto o assente → default (mai crash).
+   * - Merge con default per campi mancanti (forward-compat).
+   * @returns {{ v: number, shiny: boolean, capture: boolean }}
+   */
+  function getSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      // Merge con default per campi mancanti (forward-compat)
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  /**
+   * Scrive settings (read-modify-write per preservare campi futuri).
+   * - Patch parziale: ogni chiave passata viene mergiata sullo stato corrente.
+   * - `v` forzato allo schema corrente (mai retrocesso da patch malevole).
+   * - Silenzioso su errore (localStorage pieno/privato): il gioco non deve
+   *   crashare per colpa dei nostri toggle.
+   * @param {object} patch - Campi da aggiornare (es. { shiny: true })
+   */
+  function setSettings(patch) {
+    try {
+      const current = getSettings();
+      const merged = { ...current, ...patch, v: DEFAULT_SETTINGS.v };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+    } catch (e) {
+      // silenzioso
+    }
+  }
+
   return {
     createBackup: createBackup,
     validatePostWrite: validatePostWrite,
@@ -294,6 +339,8 @@ const PvuStorage = (() => {
     serializeBigInt: serializeBigInt,
     sanitizeSavedData: sanitizeSavedData,
     getUsername: getUsername,
+    getSettings: getSettings,
+    setSettings: setSettings,
     log: log,
     warn: warn,
     error: error,
