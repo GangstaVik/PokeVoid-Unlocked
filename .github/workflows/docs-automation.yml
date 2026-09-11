@@ -130,7 +130,7 @@ jobs:
           branch: docs/auto-update-${{ github.run_id }}
 
       - name: Open documentation PR
-        if: steps.commit.outputs.changes == 'true'
+        if: steps.commit.outputs.changes_detected == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           branch: docs/auto-update-${{ github.run_id }}
