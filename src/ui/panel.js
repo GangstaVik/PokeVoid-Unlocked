@@ -1,4 +1,4 @@
-// src/ui/panel.js — Pannello principale con tab Money / Roll / Skill
+// src/ui/panel.js — Pannello principale con tab Money / Roll / Skill / Voucher / Battle
 const PvuPanel = (() => {
   const LOG_PREFIX = '[PvuPanel]';
   let containerEl = null;
@@ -56,11 +56,13 @@ const PvuPanel = (() => {
     const tabRoll = createTab('🎲 Roll', 'roll');
     const tabSkill = createTab('🌳 Skill', 'skill');
     const tabVoucher = createTab('🎟️ Voucher', 'voucher');
+    const tabBattle = createTab('🎯 Battle', 'battle');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
     tabs.appendChild(tabSkill);
     tabs.appendChild(tabVoucher);
+    tabs.appendChild(tabBattle);
     panelEl.appendChild(tabs);
 
     // Tab content area
@@ -142,6 +144,10 @@ const PvuPanel = (() => {
       case 'voucher':
         window.__pvu.voucherScreen.render(content);
         activeScreen = window.__pvu.voucherScreen;
+        break;
+      case 'battle':
+        window.__pvu.battleScreen.render(content);
+        activeScreen = window.__pvu.battleScreen;
         break;
     }
   }

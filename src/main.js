@@ -72,6 +72,13 @@
     pvu.encounterOverride.init();
   }
 
+  // 5c. Init capture override (Catch Any) — stato persistito letto qui;
+  // gli hooks vengono applicati con retry su CommandPhase.prototype
+  // quando la battle scene esiste (nel hookInterval sotto).
+  if (pvu.captureOverride) {
+    pvu.captureOverride.init();
+  }
+
   // 6. Attendi che il gioco sia pronto e applica hooks
   let hookAttempts = 0;
   const hookInterval = setInterval(function() {
@@ -112,6 +119,11 @@
     // Hook encounter override (Always Shiny) — retry interno su Pokemon.prototype
     if (pvu.encounterOverride) {
       pvu.encounterOverride.applyHooks();
+    }
+
+    // Hook capture override (Catch Any) — retry interno su CommandPhase.prototype
+    if (pvu.captureOverride) {
+      pvu.captureOverride.applyHooks();
     }
 
     clearInterval(hookInterval);
