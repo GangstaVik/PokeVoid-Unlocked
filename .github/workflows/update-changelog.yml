@@ -1,0 +1,106 @@
+name: Update Changelog
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: docs-and-changelog
+  cancel-in-progress: false
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: master
+
+      - name: Resolve tag version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if heading already exists
+        id: skip
+        run: |
+          if grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Extract release notes from [Unreleased]
+        id: extract
+        if: steps.skip.outputs.skip == 'false'
+        run: |
+          NOTES="$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md \
+            | sed '/^<!-- auto-filled by CI -->$/d' \
+            | sed 's/\r$//' \
+            | sed '/^[[:space:]]*$/d' \
+            | head -c 2000)"
+          echo "notes=${NOTES}" >> "$GITHUB_OUTPUT"
+
+      - name: Update CHANGELOG ([Unreleased] -> new version)
+        if: steps.skip.outputs.skip == 'false'
+        uses: stefanzweifel/changelog-updater-action@v1
+        with:
+          latest-version: ${{ steps.version.outputs.version }}
+          release-notes: ${{ steps.extract.outputs.notes }}
+          path-to-changelog: CHANGELOG.md
+
+      - name: Ensure [Unreleased] block in CHANGELOG.md
+        if: steps.skip.outputs.skip == 'false'
+        run: |
+          python - <<'PYEOF'
+          from pathlib import Path
+
+          p = Path('CHANGELOG.md')
+          header = '# Changelog'
+          block = '## [Unreleased]\n<!-- auto-filled by CI -->'
+          original = p.read_text(encoding='utf-8') if p.exists() else ''
+          lines = original.splitlines()
+
+          out = []
+          i = 0
+          while i < len(lines):
+              if lines[i].startswith('## [Unreleased]'):
+                  i += 1
+                  while i < len(lines) and (
+                      lines[i].startswith('<!-- auto-filled by CI -->') or lines[i].strip() == ''
+                  ):
+                      i += 1
+                  continue
+              out.append(lines[i])
+              i += 1
+
+          text = '\n'.join(out).strip('\n')
+          if text.startswith(header):
+              rest = text[len(header):].lstrip('\n')
+              new = header + '\n\n' + block + '\n\n' + rest + '\n'
+          else:
+              new = header + '\n\n' + block + '\n\n' + text + '\n'
+
+          if new != original:
+              p.write_text(new, encoding='utf-8')
+          PYEOF
+
+      - name: Open changelog PR
+        if: steps.skip.outputs.skip == 'false'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: changelog/update-v${{ steps.version.outputs.version }}
+          base: master
+          title: 'docs: release v${{ steps.version.outputs.version }} — update CHANGELOG'
+          body: |
+            Automatic CHANGELOG update triggered by tag `v${{ steps.version.outputs.version }}`.
+          token: ${{ secrets.GITHUB_TOKEN }}

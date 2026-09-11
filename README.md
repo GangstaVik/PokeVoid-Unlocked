@@ -1,88 +1,80 @@
 # PokeVoid-Unlocked
 
-> Userscript nativo per [pokevoid.com](https://pokevoid.com) che espande il sistema di roll modifier e skill tree.
+[![Release](https://img.shields.io/badge/Release-v1.3.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.3.0)
+[![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-## Stato
+A free, open-source userscript that unlocks extra features for the **browser version** of PokeVoid.
 
-🚀 **v1.3.0** — Always Shiny + Capture Any
+## Features
 
-## Funzionalità
+| Feature | Description |
+| --- | --- |
+| ✨ Always Shiny | Force shiny encounters. Bosses, rivals and legendaries are deliberately bypassed. |
+| 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |
+| 🎲 Roll Controller | 3 honest toggles operating on real roll values (no cosmetic probabilities), with real itemcount scaling. |
+| 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |
+| 💰 Money Override | Set the in-game currency value. BigInt-safe. |
+| 🎟️ Voucher Editor | Grant vouchers directly. Available since v1.2.0. |
+| ⚔️ Battle tab | Shiny/capture toggles from the battle screen; settings persist between sessions. Available since v1.3.0. |
 
-| Modulo | Descrizione |
-|--------|-------------|
-| **Roll Controller** | Free reroll, override item count, modifica money |
-| **Money Override** | Modifica soldi, skill points, vouchers permanenti |
-| **Skill Points Editor** | Modifica skill points永久 con bypass prerequisiti |
-| **Always Shiny** | Toggle: ogni Pokémon diventa shiny (wild/boss/rival/legendary). Hook `trySetShiny(65536)` |
-| **Capture Any** | Toggle: cattura qualsiasi Pokémon (boss, rival, legendary, multi-target). L2 wrapper + L1 fallback |
-| **Battle Tab** | Pannello UI per toggle Always Shiny / Capture Any direttamente in battaglia |
-| **Voucher Editor** | Modifica quantità voucher |
-| **UI Flottante** | Pannello dark theme con acceso/discesa rapida |
+> UI and utility modules that back these features are listed in [Structure](#structure).
 
-## Installazione
+## How to use
 
-1. Installa [Tampermonkey](https://www.tampermonkey.net/) (Chrome/Edge) o [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/) (Firefox)
-2. Vai su https://pokevoid.com
-3. Crea un nuovo script userscript e incolla il contenuto di `pokevoid-unlocked.user.js`
-4. Salva e ricarica la pagina
+1. Install a userscript manager (**Tampermonkey** or **Violentmonkey**).
+2. Download [`pokevoid-unlocked.user.js`](pokevoid-unlocked.user.js) from this repository (raw URL) or copy-paste its content into a new userscript.
+3. Confirm the installation in the userscript manager.
+4. Open pokevoid.com — press **`Ctrl+Shift+P`** (`src/main.js:147`) or click the **⚡ floating button** in the bottom-right corner (`src/ui/floating-btn.js`) to open or close the panel.
 
-> ⚠️ **Compatibilità**: testato su build v3.1.8. Potrebbe non funzionare su versioni successive.
+> `pokevoid-unlocked.user.js` is generated from `src/` by `node build.js` (bundled, dependency-free) and is committed intentionally.
 
-## Disclaimer
-
-⚠️ **MODIFICA VALORI DI GIOCO** — Questo script modifica il comportamento del gioco (roll, money, skill points). Usalo a tuo rischio e pericolo.
-
-- Non affiliato con pokevoid.com né con gli sviluppatori del gioco
-- Non responsabili di ban, perdita di progressi o altri danni
-- Per uso personale e didattico
-
-## Struttura
+## Structure
 
 ```
-PokeVoid-Unlocked/
-├── pokevoid-unlocked.user.js    # Script principale (da installare)
-├── src/
-│   ├── main.js                  # Entry point
-│   ├── game-bridge.js           # Hook su Phaser.Game
-│   ├── phase-observer.js        # Observer per fasi di gioco
-│   ├── roll-controller.js       # Logica roll override
-│   ├── encounter-override.js    # Always Shiny hook (trySetShiny)
-│   ├── capture-override.js      # Capture Any (L2 wrapper + L1 fallback)
-│   ├── money-override.js        # Override money/skill points
-│   ├── skill-tree-editor.js     # Logica skill points
-│   ├── voucher-editor.js        # Logica voucher
-│   ├── ui/
-│   │   ├── panel.js             # Pannello principale
-│   │   ├── floating-btn.js      # Bottone flottante
-│   │   ├── roll-screen.js       # UI roll controller
-│   │   ├── skill-screen.js      # UI skill editor
-│   │   ├── voucher-screen.js    # UI voucher editor
-│   │   ├── battle-screen.js     # UI Always Shiny / Capture Any
-│   │   └── styles.js            # CSS dinamico
-│   └── utils/
-│       ├── config.js            # Configurazioni
-│       ├── storage.js           # Lettura/scrittura save
-│       └── helpers.js           # Utility varie
-├── docs/
-│   ├── design.md                # Design doc (TODO)
-│   └── pokevoid-roll-system-re-report.md  # Report RE completo
-└── README.md
+src/
+├── main.js                    — entry point, panel toggle (Ctrl+Shift+P)
+├── encounter-override.js      — Always Shiny
+├── capture-override.js        — Catch Any (L2 wrapper + L1 fallback)
+├── roll-controller.js         — Roll Controller (3 toggles + itemcount)
+├── skill-tree-editor.js       — Skill Tree Editor
+├── money-override.js          — Money Override (BigInt-safe)
+├── voucher-editor.js          — Voucher Editor
+├── game-bridge.js             — game API bridge
+├── phase-observer.js          — battle phase hooks
+├── ui/
+│   ├── floating-btn.js        — ⚡ floating action button
+│   ├── panel.js               — panel shell
+│   ├── battle-screen.js       — battle tab toggles
+│   ├── roll-screen.js         — roll controls UI
+│   ├── skill-screen.js        — skill editor UI
+│   ├── voucher-screen.js      — voucher editor UI
+│   └── styles.js              — UI styling
+├── utils/
+│   ├── config.js              — configuration
+│   ├── helpers.js             — shared helpers
+│   └── storage.js             — settings persistence
+build.js                        — build script (no dependencies)
 ```
 
-## Report RE
+Key entry points and modules by path: `src/ui/floating-btn.js`, `src/game-bridge.js`, `src/phase-observer.js`, `src/utils/storage.js` (full structure above).
 
-Il report di reverse engineering del roll system si trova in [`docs/pokevoid-roll-system-re-report.md`](docs/pokevoid-roll-system-re-report.md). Contiene:
+## Compatibility
 
-- 10 AOB hex signature nel bundle v3.1.8
-- Mappa completa del roll system (costi, rarità, item count)
-- Punti di iniezione e hook consigliati
-- Analisi struttura localStorage save
+See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for tested browsers and game builds.
 
-## Licenza
+## Changelog
 
-TODO — in fase di definizione (proposta MIT)
+See [CHANGELOG.md](CHANGELOG.md).
 
-## Crediti
+## Contributing
 
-- Analisi RE basata su bundle `index-BA2n6IsS.js` (v3.1.8, ~25.7MB)
-- Font del gioco: `pokemon-emerald-pro.ttf`, `pkmnems.ttf`
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for build steps and automation notes.
+
+## Credits
+
+This project is based on **[JsPoRoMod](https://github.com/PokeRogueMOD/JsPoRoMod)**.
+
+## License
+
+[MIT](LICENSE) © 2026 GangstaVik

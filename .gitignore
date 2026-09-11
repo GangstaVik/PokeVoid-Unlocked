@@ -15,3 +15,9 @@ Thumbs.db
 # Build
 *.min.js
 *.map
+
+# Backups
+.backup_*/
+
+# Logs
+*.log
