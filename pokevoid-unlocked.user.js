@@ -521,8 +521,62 @@ const PvuStorage = (() => {
   }
 
   /**
+   * Recursive: normalizza ogni `voucherCounts` corrotto dentro un oggetto save.
+   * Task 4 v1.4.0: initSystem carica `voucherCounts` con `|| 0` SENZA coerce —
+   * un BigInt (o la stringa "123n" prodotta da scritture third-party / mod
+   * vecchie) supera il load perché BigInt è truthy, ma crasha la sessione alla
+   * prima aritmetica: `+=` (AddVoucherModifier.apply), `-=` con Math.max
+   * (consumeVouchers), `++` (unlock achievement).
+   * Stesso pattern di sanitizePermaMoney (second walk, idempotente).
+   * @param {object} obj - nodo corrente (oggetto o array)
+   * @returns {boolean} true se qualcosa è stato modificato
+   */
+  function sanitizeVoucherCounts(obj) {
+    let changed = false;
+    if (obj === null || typeof obj !== 'object') return false;
+
+    // Mappa {0..3: number} — propria del nodo.
+    const vc = obj.voucherCounts;
+    if (vc !== null && typeof vc === 'object' && !Array.isArray(vc)) {
+      for (const k in vc) {
+        if (!Object.prototype.hasOwnProperty.call(vc, k)) continue;
+        const v = vc[k];
+        if (typeof v === 'string') {
+          const m = /^(\d+)n?$/.exec(v.trim());
+          if (m) {
+            vc[k] = Number(m[1]);
+            changed = true;
+          }
+        } else if (typeof v === 'bigint') {
+          vc[k] = Number(v);
+          changed = true;
+        }
+      }
+    }
+
+    // Livello successivo: array e oggetti annidati (walk ricorsiva).
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        if (obj[i] !== null && typeof obj[i] === 'object') {
+          if (sanitizeVoucherCounts(obj[i])) changed = true;
+        }
+      }
+    } else {
+      for (const key in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const v = obj[key];
+        if (v !== null && typeof v === 'object') {
+          if (sanitizeVoucherCounts(v)) changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  /**
    * Sanitizzazione allo start: scansiona TUTTI i save `data_*` nel localStorage e
-   * corregge ogni permaMoney corrotto (stringa "123n" / BigInt) → number.
+   * corregge ogni campo numerico corrotto → number: `permaMoney` (BigInt) e,
+   * da v1.4.0, la mappa `voucherCounts` (BigInt / stringa "123n").
    *
    * - Solo chiavi con prefisso `data_` (i save del gioco), esclusi i nostri backup
    *   (`data_pvu_backup_*`) e i backup legacy (`data_backup*`).
@@ -557,7 +611,7 @@ const PvuStorage = (() => {
         }
         if (parsed === null || typeof parsed !== 'object') continue;
 
-        if (sanitizePermaMoney(parsed)) {
+        if (sanitizePermaMoney(parsed) || sanitizeVoucherCounts(parsed)) {
           const jsonStr = JSON.stringify(parsed);
 
           // Usa protocollo standard: backup → write → validate
@@ -576,7 +630,7 @@ const PvuStorage = (() => {
               continue;
             }
             fixed++;
-            log('Sanitizzato', key, '(permaMoney corretto)' + (backup.key ? ' | backup: ' + backup.key : ''));
+            log('Sanitizzato', key, '(campi numerici corretti)' + (backup.key ? ' | backup: ' + backup.key : ''));
           } catch (e) {
             error('Write sanitize fallito per', key, e);
             // rollback manuale se validatePostWrite non ha potuto agire
