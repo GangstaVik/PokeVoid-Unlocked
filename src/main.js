@@ -21,7 +21,7 @@
     console.warn.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
   }
 
-  log('Avvio PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
+  log('Starting PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
 
   // 0. Sanitizza salvataggi esistenti (prima che il gioco carichi i dati — anti-BigInt)
   //   Fix v1.2.1: permaMoney serializzato come BigInt/stringa "123n" causava
@@ -30,7 +30,7 @@
     try {
       pvu.storage.sanitizeSavedData();
     } catch (e) {
-      warn('Sanitizzazione salvataggi fallita:', e);
+      warn('Save sanitization failed:', e);
     }
   }
 
@@ -40,14 +40,16 @@
   // 2. Crea floating button (prima di tutto, anche se il gioco non è partito)
   let panelCreated = false;
 
+  function togglePanel() {
+    if (!panelCreated) {
+      createPanelAndUI();
+    } else {
+      pvu.panel.toggle();
+    }
+  }
+
   if (pvu.floatingBtn) {
-    pvu.floatingBtn.create(function() {
-      if (!panelCreated) {
-        createPanelAndUI();
-      } else {
-        pvu.panel.toggle();
-      }
-    });
+    pvu.floatingBtn.create(togglePanel);
   }
 
   // 3. Init game bridge (hook Phaser.Game)
@@ -94,18 +96,18 @@
     if (!scene) {
       if (hookAttempts > 60) {
         clearInterval(hookInterval);
-        log('Timeout: battle scene non trovato dopo 30s');
+        log('Timeout: battle scene not found after 30s');
       }
       return;
     }
 
     // Battle scene trovato — applica hooks
-    log('Battle scene trovato, applico hooks...');
+    log('Battle scene found, applying hooks...');
 
     if (pvu.rollController) {
       const applied = pvu.rollController.applyHooks();
       if (applied) {
-        log('Roll hooks applicati con successo');
+        log('Roll hooks applied successfully');
       } else {
         // FIX v1.4 (T2): qui un warn immediato era un falso positivo sistematico —
         // applyHooks() registra solo gli interceptor, hooksApplied diventa TRUE
@@ -113,15 +115,15 @@
         // successo è il log 'Hooks applicati con successo (getRerollCost patched)'
         // in roll-controller.js. Ora: info immediata + UN SOLO warn ritardato
         // (60s) che scatta solo se gli hooks non risultano ancora applicati.
-        log('Roll hooks in attesa di una phase (push/unshift) — informativo, non errore');
+        log('Roll hooks waiting for a phase (push/unshift) — informative, not an error');
         setTimeout(function() {
           try {
             const st = pvu.rollController.getState();
             if (!st.hooksApplied) {
-              warn('Roll hooks NON applicati dopo 60s (nessuna phase patchata) — verifica la compatibilita con la versione del gioco');
+              warn('Roll hooks NOT applied after 60s (no patched phase) — check compatibility with the game version');
             }
           } catch (e) {
-            warn('Verifica roll hooks a 60s fallita:', e);
+            warn('Roll hooks 60s check failed:', e);
           }
         }, 60000);
       }
@@ -143,34 +145,27 @@
     }
 
     clearInterval(hookInterval);
-    log('Tutti gli hooks applicati');
+    log('All hooks applied');
   }, 1000);
 
   function createPanelAndUI() {
     if (panelCreated) return;
     panelCreated = true;
 
-    log('Creazione UI...');
+    log('Creating UI...');
 
     if (pvu.panel) {
       pvu.panel.create();
     }
 
-    log('UI creata');
+    log('UI created');
   }
 
-  // 7. Keyboard shortcut: Ctrl+Shift+P per toggle panel
-  document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.shiftKey && e.key === 'P') {
-      e.preventDefault();
-      if (!panelCreated) {
-        createPanelAndUI();
-      } else {
-        pvu.panel.toggle();
-      }
-    }
-  });
+  // Hotkey: toggle panel (rebindable, default Ctrl+Shift+P)
+  if (pvu.hotkey) {
+    pvu.hotkey.init(togglePanel);
+  }
 
-  log('Bootstrap completato — in attesa del gioco...');
+  log('Bootstrap complete — waiting for the game...');
 
 })();
