@@ -72,7 +72,7 @@ Rework del Catch Any (Task 0 v1.4): ogni Pokéball lanciata su un bersaglio sing
 
 **Limite noto**: specie con `species.isObtainable() === false` (non ottenibili nel gioco) → `failCatch` nativo pre-roll, il mod NON può forzarla.
 
-I casi speciali (rival/scripted/leggendari/END/boss) riceveranno un **toggle separato in una release futura** — in v1.4 restano esclusi da Catch Any.
+I casi speciali (rival/scripted/leggendari/END/boss) restano esclusi da Catch Any in v1.4; il toggle **Cattura casi speciali** è disponibile da v1.5.0 (default OFF).
 
 **Override probabilità di cattura (token-arm, sentinel 65536)**: il roll di cattura usa `t.randSeedInt(65536)` sul Pokémon bersaglio (3 draw nel tween onRepeat di `AttemptCapturePhase.start`). A tentativo armato, `randSeedInt` dell'istanza viene patchato con scoping `v===65536 ? -1 : nativo` (FIX 4: patch ristretta al solo draw di cattura). `-1 < m` per ogni `m>=0` (m=0 incluso) ⇒ il primo draw passa sempre. Il token (`{pokemon, turn, pokeballType, fieldIndex}`) è armato nel force-inject e consumato **monocattura** allo start della `AttemptCapturePhase` (match per identità dell'oggetto pokemon + fieldIndex); restore in `catch`/`failCatch`/`end` (try/finally-semantics); token stantio invalidato a inizio turno (`TurnInitPhase`/`TurnStartPhase`). MASTER_BALL/VOID_BALL restano 100% nativi (ballMult -1/-2).
 
@@ -139,3 +139,16 @@ Firma funzione cambia → COMPAT+AOB+string search. API gameData cambia → vali
 - Residual `[LOAD ERROR] initSystem failed` (bundle v3.1.8): classificato **game-side** — investigato e verificato in sessione T4, non causato dal mod.
 - Chrome `Canvas2D: Multiple readback operations using getImageData...` (willReadFrequently warning): attribuibile al **gioco** (canvas/bundle usa `getImageData` senza `willReadFrequently`), non al mod. Vedi docs/COMPATIBILITY.md.
 - LCP attribution («lcp com triggered by script...» in Performance panel): attribuibile al **gioco** (parse del bundle ~25.7MB), non al mod. Vedi docs/COMPATIBILITY.md.
+
+### 4E. Essence Editor
+
+- Purpose: edit run-time Type Essence counts without inventory editing or save manipulation.
+- Runtime API discovery: `findGameData()` (via `window.__pvu.bridge`) → `getEssenceCount` / `addEssence` / `tryConsumeEssence`; type enum dict found by BFS scan for the `SMITTY` key over gameData (max depth 3, MAX_CHILD_SCAN = 40 scanned properties overall). If the enum is absent or invalid (no numeric key), a 21-key fallback with id=index is used and exposed via the `usingFallback` flag — no hardcoded enum ids.
+- Absolute-value semantics: Applica sets the type count to the entered absolute value by computing delta and calling add/consume natively — it never raw-writes gameData.
+- 21-key TYPE_LIST; honest degradation: tab disabled with warning when the APIs are absent; empty input rejected with an explicit error (no zero-wipe); values sanitized (digits-only regex, clamp to MAX_SAFE_INTEGER, BigInt-safe reads).
+
+### 4F. Cattura casi speciali
+
+- Default-OFF toggle (Battle tab). When ON, the Catch-Any inject is allowed to also lift the five exclusion branches: scripted rival, END biome, wave-final, legendary/OP pre-1000, boss-major — every `return true;` path inside each branch gets the `if (!forceSpecial)` wrap, including the legendary catch that continues to the Outer-Catch backstop; branches that stay unconditional: multi-target throws and the outer catch.
+- Money pre-grant unchanged (trainer-scoped — wild enemies have no money cost).
+- Risk notes: quest progression/unlocks may be affected by forced captures during scripted/final encounters; ETERNATUS/VOID high-HP captures are only possible when the boss-major lift is accepted (opt-in, default OFF) and force-inject deliberately overrides the native VOID_BALL hpRatio gate (gate not replicated in isExcluded); species with `isObtainable() === false` still fail the native `failCatch` before the roll and cannot be forced.

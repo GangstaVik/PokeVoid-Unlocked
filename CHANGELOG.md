@@ -1,7 +1,29 @@
 # Changelog
 
-## [Unreleased]
-<!-- auto-filled by CI -->
+## [1.5.0] - 2026-09-12
+
+### Added
+- Toggle Cattura casi speciali (Battle tab): allows the Catch-All force-inject to bypass the scripted / final-biome / wave-final / legendary-OP pre-1000 / boss-major exclusion branches when ON (default OFF).
+- Essenze tab with Type Essence editor: combobox of 21 type keys, absolute-value input, +1/−1 quick buttons, Applica writes natively via getEssenceCount/addEssence/tryConsumeEssence (runtime API discovery, depth-3 enum scan with 21-key id=index fallback, no hardcoded enum ids).
+
+### Changed
+- Money pre-grant unchanged: stays trainer-scoped (wild enemies have no native money cost — verified bundle v3.1.8, both `money < cost` gate and `addMoney(-c)` deduction live inside `battleType === TRAINER` branches).
+
+### Docs
+- design.md: added section 4E Essence Editor and section 4F Cattura casi speciali (4D was already taken by Catch Any).
+- COMPATIBILITY.md: added v1.5 entry incl. ETERNATUS opt-in caveat and species.isObtainable() limit.
+
+## [1.4.0] - 2026-09-12
+
+### Added
+- Catch Any toggle (Battle tab): when ON (default), any Pokéball that the game's native catch gate would reject for a single, non-excluded target is force-injected, and that catch is guaranteed; throws the game accepts on its own keep native catch odds.
+- Priority ladder in Battle tab showing enabled/disabled state, error/warn classes, and the error suffix pre-last.
+
+### Changed
+- Money pre-grant added: trainer battles auto-grant funds so the native trainer catch money check succeeds; wild enemies unaffected (no native money cost).
+
+### Docs
+- design.md: added sections 4A Money, 4B Roll Odds, 4C Skill Tree; documented fail-closed exclusions and the species.isObtainable() limit.
 
 All notable changes to this project are documented in this file.
 
@@ -45,7 +67,9 @@ All notable changes to this project are documented in this file.
 - docs: design v2 (Poseidon review fixes) (bd9e024)
 - chore: scaffold PokeVoid-Unlocked (header v2, structure, RE report) (238814b)
 
-[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.1.1...v1.2.0
