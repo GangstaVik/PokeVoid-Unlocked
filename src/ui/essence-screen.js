@@ -1,6 +1,7 @@
 /* PokeVoid-Unlocked — Essenze tab (precompiled input, debounced live apply, no buttons). */
 (function () {
     'use strict';
+    const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
     var DEBOUNCE_MS = 350;
     var container = null;
     var selectEl = null;
@@ -23,13 +24,13 @@
         container = document.createElement('div');
         container.id = 'pvu-essence-screen';
         var title = document.createElement('h3');
-        title.textContent = 'TYPE ESSENCE';
+        title.textContent = t('essence.title');
         container.appendChild(title);
 
         if (!ed || !ed.isReady()) {
             var warn = document.createElement('div');
             warn.className = 'pvu-warning';
-            warn.textContent = 'API Type Essence non trovata in questo build: editor disattivato.';
+            warn.textContent = t('essence.apiMissing');
             container.appendChild(warn);
             parentEl.appendChild(container);
             return;
@@ -90,9 +91,9 @@
         if (!ed) return;
         var res = ed.applyEssence(currentKey, raw);
         if (res.ok) {
-            setStatus('\u2713 ' + res.key + ' = ' + res.target, 'ok');
+            setStatus(res.key + ' = ' + res.target, 'ok');
         } else {
-            setStatus('Errore: ' + res.reason, 'err');
+            setStatus(t('essence.error') + res.reason, 'err');
         }
     }
 
