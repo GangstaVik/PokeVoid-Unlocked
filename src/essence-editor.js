@@ -63,7 +63,7 @@
             for (var i = 0; i < queue.length; i += 1) {
                 var o = queue[i];
                 try {
-                    if (o && typeof o === 'object' && 'SMITTY' in o) return o;
+                    if (o && typeof o === 'object' && 'SMITTY' in o && ('GEN_ONE' in o || 'STELLAR' in o)) return o;
                     for (var key in o) {
                         var v = o[key];
                         if (v && typeof v === 'object') next.push(v);
@@ -130,6 +130,7 @@
         if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'tipo non disponibile nel build corrente: ' + key };
         var target = Math.min(Math.floor(Number(rawStr)), Number.MAX_SAFE_INTEGER);
         var id = ids[key];
+        if (id < 0) return { ok: false, reason: 'tipo ' + key + ' (id ' + id + ') non scrivibile' };
         var current = getCount(id);
         var delta = target - current;
         if (delta === 0) return { ok: true, current: current, key: key, target: target };

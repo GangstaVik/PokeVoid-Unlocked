@@ -3829,7 +3829,7 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
             for (var i = 0; i < queue.length; i += 1) {
                 var o = queue[i];
                 try {
-                    if (o && typeof o === 'object' && 'SMITTY' in o) return o;
+                    if (o && typeof o === 'object' && 'SMITTY' in o && ('GEN_ONE' in o || 'STELLAR' in o)) return o;
                     for (var key in o) {
                         var v = o[key];
                         if (v && typeof v === 'object') next.push(v);
@@ -3896,6 +3896,7 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
         if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'tipo non disponibile nel build corrente: ' + key };
         var target = Math.min(Math.floor(Number(rawStr)), Number.MAX_SAFE_INTEGER);
         var id = ids[key];
+        if (id < 0) return { ok: false, reason: 'tipo ' + key + ' (id ' + id + ') non scrivibile' };
         var current = getCount(id);
         var delta = target - current;
         if (delta === 0) return { ok: true, current: current, key: key, target: target };
@@ -5235,8 +5236,8 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
     function render(parentEl) {
         if (container) destroy();
         var ed = editor();
-        // lazy init on first render (no document-start init)
-        if (ed && !ed.isReady() && typeof ed.init === 'function') ed.init();
+        // lazy init on every render (init is idempotent; gameData cache refreshed each call)
+        if (ed && typeof ed.init === 'function') ed.init();
 
         container = document.createElement('div');
         container.id = 'pvu-essence-screen';
@@ -5256,7 +5257,7 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
         // Combobox: ordine nativo dell'enum (23 opzioni, id garantiti dalla mappa canonica).
         selectEl = document.createElement('select');
         selectEl.className = 'pvu-champ-select';
-        var order = ed.TYPE_ORDER || [];
+        var order = (ed.TYPE_ORDER || []).filter(function (k) { return k !== 'UNKNOWN'; });
         var i;
         for (i = 0; i < order.length; i += 1) {
             var opt = document.createElement('option');

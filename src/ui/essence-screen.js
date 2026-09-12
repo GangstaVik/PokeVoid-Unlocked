@@ -17,8 +17,8 @@
     function render(parentEl) {
         if (container) destroy();
         var ed = editor();
-        // lazy init on first render (no document-start init)
-        if (ed && !ed.isReady() && typeof ed.init === 'function') ed.init();
+        // lazy init on every render (init is idempotent; gameData cache refreshed each call)
+        if (ed && typeof ed.init === 'function') ed.init();
 
         container = document.createElement('div');
         container.id = 'pvu-essence-screen';
@@ -38,7 +38,7 @@
         // Combobox: ordine nativo dell'enum (23 opzioni, id garantiti dalla mappa canonica).
         selectEl = document.createElement('select');
         selectEl.className = 'pvu-champ-select';
-        var order = ed.TYPE_ORDER || [];
+        var order = (ed.TYPE_ORDER || []).filter(function (k) { return k !== 'UNKNOWN'; });
         var i;
         for (i = 0; i < order.length; i += 1) {
             var opt = document.createElement('option');
