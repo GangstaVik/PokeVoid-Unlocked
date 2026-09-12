@@ -5218,7 +5218,7 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
             opt.textContent = list[i];
             selectEl.appendChild(opt);
         }
-        selectEl.addEventListener('change', function () { currentKey = selectEl.value; refreshCurrent(); });
+        selectEl.addEventListener('change', function () { currentKey = selectEl.value; if (inputEl) inputEl.value = ''; refreshCurrent(); });
         row.appendChild(selectEl);
 
         currentLabelEl = document.createElement('span');
@@ -5291,6 +5291,7 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
         container.appendChild(statusEl);
 
         currentKey = selectEl.value;
+        if (!ed.getState().enumFound) setStatus('Attenzione: enum tipi non trovato — scritture su fallback (id per indice)', 'warn');
         refreshCurrent();
         parentEl.appendChild(container);
         refreshTimer = setInterval(refreshUI, 2000);
@@ -5308,7 +5309,6 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
         if (!st || !currentKey || !currentLabelEl) return;
         var v = st.counts && st.counts[currentKey];
         currentLabelEl.textContent = 'Attuale: ' + (typeof v === 'number' ? v : '\u2014') + ' (totale: ' + st.total + ')';
-        if (!st.enumFound && statusEl) statusEl.textContent = 'Attenzione: enum tipi non trovato — scritture su fallback (id per indice)';
     }
 
     function setStatus(msg, cls) {
