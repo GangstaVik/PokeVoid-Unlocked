@@ -13,7 +13,10 @@ const PvuFloatingBtn = (() => {
 
     btnEl = document.createElement('button');
     btnEl.id = 'pvu-fab';
-    btnEl.textContent = '⚡';
+    btnEl.textContent = 'PV';
+    btnEl.style.fontSize = '13px';
+    btnEl.style.fontWeight = '800';
+    btnEl.style.color = '#4fa3ff';
     btnEl.title = 'PokeVoid-Unlocked';
     btnEl.setAttribute('aria-label', 'PokeVoid-Unlocked');
 
@@ -27,14 +30,14 @@ const PvuFloatingBtn = (() => {
     // Inserisci nel body appena disponibile
     if (document.body) {
       document.body.appendChild(btnEl);
-      log('Bottone creato');
+      log('Button created');
     } else {
       // document-start: aspetta body
       const observer = new MutationObserver(function() {
         if (document.body) {
           document.body.appendChild(btnEl);
           observer.disconnect();
-          log('Bottone creato (after body)');
+          log('Button created (after body)');
         }
       });
       observer.observe(document.documentElement || document, { childList: true, subtree: true });
@@ -54,7 +57,7 @@ const PvuFloatingBtn = (() => {
   function destroy() {
     if (btnEl && btnEl.parentNode) btnEl.parentNode.removeChild(btnEl);
     btnEl = null;
-    log('destroy');
+    log('Button destroyed');
   }
 
   return {
