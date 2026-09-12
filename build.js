@@ -33,7 +33,7 @@ const FILES = [
 const HEADER = `// ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.3.1
+// @version      1.4.0
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*

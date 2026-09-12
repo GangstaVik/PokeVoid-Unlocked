@@ -1,6 +1,6 @@
 # PokeVoid-Unlocked
 
-[![Release](https://img.shields.io/badge/Release-v1.3.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.3.0)
+[![Release](https://img.shields.io/badge/Release-v1.4.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.4.0)
 [![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
@@ -11,7 +11,7 @@ A free, open-source userscript that unlocks extra features for the **browser ver
 | Feature | Description |
 | --- | --- |
 | ✨ Always Shiny | Force shiny encounters. Bosses, rivals and legendaries are deliberately bypassed. |
-| 🎯 Catch Any | Catch any Pokémon — works from the regular ball menu. L2 wrapper on the command handler, with an L1 fallback if the game build changes. |
+| 🎯 Catch Any | When the capture toggle is active, any Pokéball that the game's native catch gate would reject for a single, non-excluded target is force-injected, and that catch is guaranteed. Throws the game accepts on its own keep native catch odds. |
 | 🎲 Roll Controller | 3 honest toggles operating on real roll values (no cosmetic probabilities), with real itemcount scaling. |
 | 🌳 Skill Tree Editor | Edit skill points for the current run. Event-driven refresh since v1.2.0. |
 | 💰 Money Override | Set the in-game currency value. BigInt-safe. |
@@ -35,7 +35,7 @@ A free, open-source userscript that unlocks extra features for the **browser ver
 src/
 ├── main.js                    — entry point, panel toggle (Ctrl+Shift+P)
 ├── encounter-override.js      — Always Shiny
-├── capture-override.js        — Catch Any (L2 wrapper + L1 fallback)
+├── capture-override.js        — Catch Any guaranteed catch for gate-rejected throws (L2 command wrapper + L1 backstop)
 ├── roll-controller.js         — Roll Controller (3 toggles + itemcount)
 ├── skill-tree-editor.js       — Skill Tree Editor
 ├── money-override.js          — Money Override (BigInt-safe)

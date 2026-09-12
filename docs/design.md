@@ -56,6 +56,28 @@ Rimosso setLuck→phase.luck (inesistente). Rimosso setRollCount per itemcount (
 - Unlock skill: bypass check skillPoints+essenceWeights, spesa=0, push unlockableId in `unlocked<Category>` (arrayMap: megaStones→unlockedMegaStones, xms→unlockedXMs, smittyAbilities→unlockedSmittyAbilities, legendaryPokemon→unlockedLegendaryPokemon, signaturePokemon→unlockedSignaturePokemon, glitchForms→unlockedGlitchForms), remove da lockedSkills, `gameData.saveSystem()`.
 - **championSkillVersion**: salvare `__pvu_unlockedVersion` con gli unlock; se diversa al load → warning UI "versione skill cambiata, unlock precedenti potrebbero non essere validi", nessuna cancellazione automatica.
 
+### 4D. Catch Any — Guaranteed Capture (v1.4)
+
+Rework del Catch Any (Task 0 v1.4): ogni Pokéball lanciata su un bersaglio singolo non-escluso che il gate nativo di cattura del gioco RIFIUTA viene force-iniettata e quella cattura è garantita; i lanci che il gioco accetta da solo mantengono le odds native. Approccio a 2 livelli:
+
+- **L2 — wrapper su `CommandPhase.prototype.handleCommand`**: chiama prima il gate nativo; se il nativo accetta (return true + turnCommands assegnato) passa through e **impara l'ID del comando BALL solo su un successo nativo di comando BALL** (`capture-override.js` ~637-647; aprendimento mai su FIGHT/etc.). Se il nativo blocca e il comando è BALL (id da `state.ballCommandId`, **fallback assunto = 1** finché non osservato, `BALL_CMD_ID_FALLBACK`), il wrapper esegue il **force-inject** replicando esattamente il ramo successo nativo (turnCommands + targets + skip partner + `end()`). `level2Verified` è solo report, NON è più nel gate: l'inject gira al primo tentativo.
+- **L1 — backstop live**: 99 pokeball per ogni tipo (`pokeballCounts` + `typeBallCounts`) ri-armati ad **ogni CommandPhase push** (`l1BackstopInterceptor`), non solo al boot. Risolve il gate `count=0` anche se scade in corsa; i gate boss/rival/etc. richiedono L2.
+
+**Esclusioni deterministiche (fail-closed)** — replicate dal gate nativo del case BALL (bundle v3.1.8), ogni controllo che solleva eccezione ⇒ escluso (`isExcluded`):
+- rival / scripted: `battleType===TRAINER && gameMode.checkIfRival(scene)`
+- multi-target: nemici attivi != 1 (difesa in profondità anche in `forceInject`)
+- biome END, wave pre-final (`isWavePreFinal`)
+- leggendario / OP-form pre-wave-1000 (`isLegendSubOrMystical` / `isOPForm`, gate nativo COL 16903330)
+- boss-major: `isBoss() && bossSegmentIndex>=1`; segmento non determinabile ⇒ escluso
+
+**Limite noto**: specie con `species.isObtainable() === false` (non ottenibili nel gioco) → `failCatch` nativo pre-roll, il mod NON può forzarla.
+
+I casi speciali (rival/scripted/leggendari/END/boss) riceveranno un **toggle separato in una release futura** — in v1.4 restano esclusi da Catch Any.
+
+**Override probabilità di cattura (token-arm, sentinel 65536)**: il roll di cattura usa `t.randSeedInt(65536)` sul Pokémon bersaglio (3 draw nel tween onRepeat di `AttemptCapturePhase.start`). A tentativo armato, `randSeedInt` dell'istanza viene patchato con scoping `v===65536 ? -1 : nativo` (FIX 4: patch ristretta al solo draw di cattura). `-1 < m` per ogni `m>=0` (m=0 incluso) ⇒ il primo draw passa sempre. Il token (`{pokemon, turn, pokeballType, fieldIndex}`) è armato nel force-inject e consumato **monocattura** allo start della `AttemptCapturePhase` (match per identità dell'oggetto pokemon + fieldIndex); restore in `catch`/`failCatch`/`end` (try/finally-semantics); token stantio invalidato a inizio turno (`TurnInitPhase`/`TurnStartPhase`). MASTER_BALL/VOID_BALL restano 100% nativi (ballMult -1/-2).
+
+**Money pre-grant**: su battaglia trainer il force-inject **pre-granta** la moneta necessaria (`getRequiredMoneyForPokeBuy`) via `moneyOverride.setMoney` (BigInt-safe) prima della cattura — risolve il gate 5 del nativo per lo snatch trainer. Contatori di telemetria: `injectedCount`, `capturedCount`, `blockedCount`, `errorCount` (auto-degrade a L1 dopo 3 errori).
+
 ## 5. Gestione Save
 Regola: mai scrivere durante animazioni (solo fasi statiche). Protocollo: 1) backup `data_pvu_backup_<ts>_<username>`; 2) scrittura via `gameData.setLocalStorageItem('data_'+username, ...)`; 3) validazione post-write (rileggi+confronta, mismatch→ripristina backup+notifica); 4) log console `[PokeVoid-Unlocked]`.
 
@@ -111,3 +133,9 @@ Zero dipendenze. Bundle minimale singolo file in fase 2 (non blocca MVP).
 
 ## 11. Rischi
 Firma funzione cambia → COMPAT+AOB+string search. API gameData cambia → validazione+backup+try/catch rollback. championSkillVersion bump → warning, no auto-cancel. Scrittura in animazione → phase observer. Font assente → fallback system-ui.
+
+### Note verificate (rumore console game-side, NON del mod)
+
+- Residual `[LOAD ERROR] initSystem failed` (bundle v3.1.8): classificato **game-side** — investigato e verificato in sessione T4, non causato dal mod.
+- Chrome `Canvas2D: Multiple readback operations using getImageData...` (willReadFrequently warning): attribuibile al **gioco** (canvas/bundle usa `getImageData` senza `willReadFrequently`), non al mod. Vedi docs/COMPATIBILITY.md.
+- LCP attribution («lcp com triggered by script...» in Performance panel): attribuibile al **gioco** (parse del bundle ~25.7MB), non al mod. Vedi docs/COMPATIBILITY.md.

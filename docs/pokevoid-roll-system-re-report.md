@@ -217,3 +217,10 @@ money reward (chaos, Le(500,200)+wave*5)                    @ 17418223
 
 ### Appendice — script di estrazione usati
 `re_map.py` (mappa stringhe), `re_names.py` (elenco 3.223 simboli → `re_names_out.txt`), `re_ctx1.py`…`re_ctx15.py` (estrazione contesto ±N caratteri con redirect su `.txt`). Tutti in `C:\Users\Amministratore\vsc-work\`.
+
+---
+
+## Aggiornamento v1.4
+
+- **Fix «Modifier type option is null» (T1)**: `getModifierTypeOptions` del roll-controller ora sonda il nativo con il conteggio **nominale** e, se il pool filtrato è saturo, **clampa** l'effectiveCount a `min(nominale + extra, lunghezza sondata)` invece di forzare `+extra` a vuoto (roll-controller.js ~143-162), con resync dei `modifierTiers` (luck lock) sull'effectiveCount (`luckTierPool(state.luckValue, effectiveCount)`). Eliminata la causa delle scelte duplicate/pool svuotato.
+- **Warning roll hooks ridefinito (T2)**: il warn immediato a `applyHooks()` non-applicato era un falso positivo sistematico (l'applicazione vera avviene alla prima push/unshift di una phase `su`). Ora: `console.log` immediato + **un solo warn ritardato a 60s** (`setTimeout(..., 60000)` in main.js ~117-126) che scatta solo se `hooksApplied` risulta ancora false — segnale onesto di incompatibilità, non rumore.
