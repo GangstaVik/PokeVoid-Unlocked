@@ -3,7 +3,6 @@ const PvuVoucherEditor = (() => {
   const LOG_PREFIX = '[PvuVoucherEditor]';
   const TYPES = [0, 1, 2, 3];
   const LABELS = ['REGULAR', 'PLUS', 'PREMIUM', 'GOLDEN'];
-  const VOUCHER_EMOJI = ['🎫', '🎟️', '⭐', '👑'];
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -95,7 +94,6 @@ const PvuVoucherEditor = (() => {
   return {
     TYPES: TYPES,
     LABELS: LABELS,
-    VOUCHER_EMOJI: VOUCHER_EMOJI,
     getVoucherCounts: getVoucherCounts,
     setVoucherCount: setVoucherCount,
     setAllVoucherCounts: setAllVoucherCounts,

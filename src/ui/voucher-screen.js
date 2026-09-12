@@ -1,5 +1,6 @@
 // src/ui/voucher-screen.js — UI Voucher Editor (tab Voucher)
 const PvuVoucherScreen = (() => {
+  const tr = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuVoucherScreen]';
   let containerEl = null;
   let statusEl = null;
@@ -17,17 +18,16 @@ const PvuVoucherScreen = (() => {
 
     const title = document.createElement('div');
     title.className = 'pvu-section-title';
-    title.textContent = '🎟️ Voucher Editor';
+    title.textContent = tr('voucher.title');
     section.appendChild(title);
 
     const info = document.createElement('div');
     info.className = 'pvu-info';
-    info.textContent = 'Modifica i voucher. Il gioco salva automaticamente.';
+    info.textContent = tr('voucher.info');
     section.appendChild(info);
 
     const editor = window.__pvu.voucherEditor;
     const labels = editor.LABELS;
-    const emojis = editor.VOUCHER_EMOJI;
     const rows = [];
 
     for (let t = 0; t < labels.length; t++) {
@@ -38,7 +38,7 @@ const PvuVoucherScreen = (() => {
         const label = document.createElement('span');
         label.style.minWidth = '110px';
         label.style.display = 'inline-block';
-        label.textContent = emojis[typeIdx] + ' ' + labels[typeIdx];
+        label.textContent = labels[typeIdx];
         row.appendChild(label);
 
         const input = document.createElement('input');
@@ -94,7 +94,7 @@ const PvuVoucherScreen = (() => {
         counts[labels[rows[i].type]] = Math.max(0, parseInt(rows[i].inputEl.value, 10) || 0);
       }
       const result = editor.setAllVoucherCounts(counts);
-      showStatus(result.ok ? '✓ Tutti i voucher aggiornati' : '✗ ' + (result.error || 'Errore'), result.ok);
+      showStatus(result.ok ? tr('voucher.updated') : (result.error || tr('voucher.error')), result.ok);
     });
     allRow.appendChild(applyAllBtn);
     section.appendChild(allRow);
@@ -102,7 +102,7 @@ const PvuVoucherScreen = (() => {
     // Status
     statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = tr('voucher.waiting');
     section.appendChild(statusEl);
 
     containerEl.appendChild(section);
@@ -115,7 +115,7 @@ const PvuVoucherScreen = (() => {
     const val = parseInt(inputEl.value, 10);
     const editor = window.__pvu.voucherEditor;
     const result = editor.setVoucherCount(typeIdx, val);
-    showStatus(result.ok ? '✓ ' + editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : '✗ ' + (result.error || 'Errore'), result.ok);
+    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : (result.error || tr('voucher.error')), result.ok);
   }
 
   function showStatus(msg, ok) {
@@ -131,7 +131,7 @@ const PvuVoucherScreen = (() => {
     const editor = window.__pvu.voucherEditor;
     const counts = editor.getVoucherCounts();
     if (!counts) {
-      showStatus('gameData non disponibile', false);
+      showStatus('gameData unavailable', false);
       return;
     }
 
