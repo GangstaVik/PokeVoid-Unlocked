@@ -1828,6 +1828,10 @@ const PvuEncounterOverride = (() => {
   // main.js e gli altri moduli non interferiscono con questo hook.
   const ENCOUNTER_PATCHED = Symbol.for('pvuEncounterPatched');
 
+  // Task 3 v1.4.0: specie già segnalate per variant-asset mancanti.
+  // → un solo warn deduplicato per specie, mai spam.
+  const warnedMissingVariantAssets = new Set();
+
   // Stato toggle. `shiny` è persistito in localStorage via storage.setSettings
   // (chiave '__pvu_settings', campo `shiny` già previsto in DEFAULT_SETTINGS).
   const state = {
@@ -1927,6 +1931,75 @@ const PvuEncounterOverride = (() => {
   }
 
   /**
+   * Key sprite che il gioco userebbe per la variante EPIC (tier 2) — l'unica
+   * variante che cambia la key texture (suffisso `_3`: in getSpriteId quando
+   * `f[i] === 2` e in initShinySparkle come `_${this.variant + 1}`). Le
+   * varianti 0/1 riusano la stessa key base + tint (getVariantTint).
+   * @param {object} poke
+   * @returns {string|null} Key animated attesa, o null se non calcolabile
+   */
+  function expectedVariantKey(poke) {
+    try {
+      if (typeof poke.getSpriteKey !== 'function') return null;
+      const prev = poke.variant;
+      poke.variant = 2; // EPIC — unica tier con key dedicata
+      let key = null;
+      try {
+        key = poke.getSpriteKey(true);
+      } finally {
+        poke.variant = prev;
+      }
+      return key;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Probe asset per la variante EPIC (Task 3): verifica che i asset della
+   * variante esistano PRIMA di chiamare generateVariant. Stessa semantica del
+   * guard nativo del gioco (bundle v3.1.8, textures.exists per la sprite key).
+   * 1. Sparkle EPIC globale (`shiny_3`) — presente solo se il build ha le
+   *    varianti sparkle.
+   * 2. Sprite di battaglia EPIC (`pkmn__<id>_3`) — se la key manca nel
+   *    texture manager, la variante non può renderizzare.
+   * @param {object} poke
+   * @returns {boolean} true = asset presenti (o non verificabili → assume OK)
+   */
+  function variantAssetsExist(poke) {
+    try {
+      const scene = poke.scene;
+      if (!scene || !scene.textures) return true; // non verificabile → assume presente
+      if (!scene.textures.exists('shiny_3')) return false; // sparkle EPIC globale assente
+      const key = expectedVariantKey(poke);
+      if (key && !scene.textures.exists(key)) return false; // sprite EPIC mancante
+      return true;
+    } catch (e) {
+      return true; // fail-safe: mai bloccare la shiny su errori imprevisti
+    }
+  }
+
+  /**
+   * Variant assente (asset non disponibili per questa specie) → skip silenzioso.
+   * Variant forzata a 0: il costruttore Pokemon fa `variant === void 0` →
+   * non ri-rolla generateVariant, quindi la shiny resta sulla texture base.
+   * La sparkle è già stata inizializzata prima (base, variant 0).
+   * @param {object} poke
+   */
+  function skipMissingVariant(poke) {
+    poke.variant = 0;
+    let name = 'unknown';
+    try {
+      name = (poke.species && poke.species.name) || poke.name || 'unknown';
+    } catch (e) { /* name è solo per il log */ }
+    if (!warnedMissingVariantAssets.has(name)) {
+      warnedMissingVariantAssets.add(name);
+      warn('Asset variante shiny non disponibili per', name,
+        '— variant saltata, sparkle e texture shiny base mantenute');
+    }
+  }
+
+  /**
    * Bypass diretto per i Pokemon nemici: replica la coda nativa di
    * trySetShiny (scrittura shiny + sparkle + variant) SENZA passare dalle
    * guardie che bloccano boss/rival/legendary anche con t=65536.
@@ -1943,8 +2016,18 @@ const PvuEncounterOverride = (() => {
     }
 
     // Variant: la texture/forma shiny (valori enormi per le varianti sparkle)
+    // Task 3 v1.4.0: probe asset PRIMA di generateVariant. Se la sprite EPIC
+    // (o la sparkle EPIC globale) non esiste nel texture manager, la variant
+    // viene saltata → sparkle + texture shiny base restano (skip silenzioso,
+    // 1 warn deduplicato per specie tramite warnedMissingVariantAssets).
     if (typeof poke.generateVariant === 'function') {
-      try { poke.generateVariant(); } catch (e) { /* la variant è cosmetic */ }
+      try {
+        if (!variantAssetsExist(poke)) {
+          skipMissingVariant(poke);
+          return undefined;
+        }
+        poke.generateVariant();
+      } catch (e) { /* la variant è cosmetic */ }
     }
 
     return undefined;
