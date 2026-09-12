@@ -1,6 +1,6 @@
 # PokeVoid-Unlocked
 
-[![Release](https://img.shields.io/badge/Release-v1.5.0-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.5.0)
+[![Release](https://img.shields.io/badge/Release-v1.5.1-blue)](https://github.com/GangstaVik/PokeVoid-Unlocked/releases/tag/v1.5.1)
 [![Game](https://img.shields.io/badge/PokeVoid-v3.1.8-purple)](https://www.pokevoid.com)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 

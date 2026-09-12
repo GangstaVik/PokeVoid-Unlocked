@@ -143,9 +143,13 @@ Firma funzione cambia → COMPAT+AOB+string search. API gameData cambia → vali
 ### 4E. Essence Editor
 
 - Purpose: edit run-time Type Essence counts without inventory editing or save manipulation.
-- Runtime API discovery: `findGameData()` (via `window.__pvu.bridge`) → `getEssenceCount` / `addEssence` / `tryConsumeEssence`; type enum dict found by BFS scan for the `SMITTY` key over gameData (max depth 3, MAX_CHILD_SCAN = 40 scanned properties overall). If the enum is absent or invalid (no numeric key), a 21-key fallback with id=index is used and exposed via the `usingFallback` flag — no hardcoded enum ids.
+- Runtime API discovery: `findGameData()` (via `window.__pvu.bridge`) → `getEssenceCount` / `addEssence` / `tryConsumeEssence`. The runtime type enum dict is located by BFS scan for the `SMITTY` key over gameData (max depth 3, MAX_CHILD_SCAN = 40 scanned properties overall) and used **only for verification** — never for id resolution.
+- **Canonical map = truth**: `TYPE_IDS` is a hardcoded 24-entry table (sentry `UNKNOWN: -1` + all 23 native type ids `NORMAL: 0` … `GEN_ONE: 22`, verbatim from enum S of bundle v3.1.8). `resolveTypeIds()` always returns the canonical ids — the old id=index fallback is gone, and key→id never depends on list order or on the BFS result.
+- **Native order**: `TYPE_ORDER` follows the native enum order (UNKNOWN → GEN_ONE); the combobox uses this order so the selected value always maps to the correct native id. `UNKNOWN` is filtered from the combobox (not selectable).
+- **`verifyEnum()` (fail-open)**: cross-checks the runtime enum against the canonical map and reports any mismatch to the console. `findTypeEnum` requires the `SMITTY` + (`GEN_ONE`|`STELLAR`) discriminator pair to avoid false-positive enum hits. On divergence or absence the editor keeps working with the canonical ids — a console AVVISO is logged, never a hard disable.
 - Absolute-value semantics: Applica sets the type count to the entered absolute value by computing delta and calling add/consume natively — it never raw-writes gameData.
-- 21-key TYPE_LIST; honest degradation: tab disabled with warning when the APIs are absent; empty input rejected with an explicit error (no zero-wipe); values sanitized (digits-only regex, clamp to MAX_SAFE_INTEGER, BigInt-safe reads).
+- **UX (v1.5.1)**: single input field below the combobox, bound to the selected type, pre-filled with the live current value, editable in-place with debounced apply (~350ms). The +1/−1 quick buttons and the "Attuale: X (totale: N)" label were removed.
+- Honest degradation: tab disabled with warning when the APIs are absent; empty input rejected with an explicit error (no zero-wipe); values sanitized (digits-only regex, clamp to MAX_SAFE_INTEGER, BigInt-safe reads); `init()` is idempotent and re-runs on each Essenze tab render.
 
 ### 4F. Cattura casi speciali
 

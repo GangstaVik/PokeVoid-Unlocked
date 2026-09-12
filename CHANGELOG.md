@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.1] - 2026-09-12
+
+### Fixed
+- Rival capture regression (shipped in v1.5.0): the force-inject gate now accepts the object-shaped `turnCommands` produced by every battle type (`typeof turnCommands !== 'object'` bail). The old `Array.isArray` guard introduced in fa53abd had disabled force-inject in **all** battles, not just rival ones — forced catches work again in every battle path.
+
+### Changed
+- Essences canonical map: hardcoded 24-entry `TYPE_IDS` (sentry `UNKNOWN: -1` + all 23 native ids, enum S of bundle v3.1.8) replaces the 21-key id=index fallback — SMITTY/GLITCH/GEN_ONE are now always applied to the correct native type, regardless of list order.
+- Essence editor UX: single input bound to the selected type, pre-filled with the live current value, debounced apply (~350ms); +1/−1 quick buttons and the "Attuale: X (totale: N)" label removed.
+
+### Internals
+- `findTypeEnum` requires the `SMITTY` + (`GEN_ONE`|`STELLAR`) discriminator pair (no false-positive enum hits); `init()` is idempotent and re-runs on each Essenze tab render.
+- `verifyEnum()` fail-open: runtime enum is cross-checked against the canonical map and reported via console AVVISO on mismatch — canonical ids are always used, never a hard disable.
+- UNKNOWN (-1) filtered from the combobox — present in the canonical map but not selectable.
+
+### Docs
+- design.md: 4E Essence Editor rewritten for the canonical map / native order / verifyEnum() philosophy.
+- COMPATIBILITY.md: added v1.5.1 release entry.
+
 ## [1.5.0] - 2026-09-12
 
 ### Added
@@ -67,7 +85,8 @@ All notable changes to this project are documented in this file.
 - docs: design v2 (Poseidon review fixes) (bd9e024)
 - chore: scaffold PokeVoid-Unlocked (header v2, structure, RE report) (238814b)
 
-[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.2.1...v1.3.0
