@@ -65,6 +65,7 @@ const PvuCaptureOverride = (() => {
 
   const state = {
     enabled: false,
+    forceSpecial: false,     // V1.5: bypass selettivo esclusioni scripted/final/special
     level: 0,                // 0 = off, 1 = L1 (grant balls), 2 = L2 (wrapper)
     level2Verified: false,   // v1.4: report only — BALL confermato su successo nativo
     commandProto: null,      // prototype di CommandPhase (scoperto a runtime)
@@ -163,12 +164,16 @@ const PvuCaptureOverride = (() => {
    */
   function isExcluded(scene) {
     try {
+      // V1.5: forceSpecial bypassa selettivamente le esclusioni
+      // scripted/END/pre-final/leggendario/boss-major; B2 multi-target,
+      // "nessun nemico attivo" e l'outer catch restano unconditional.
+      var forceSpecial = !!state.forceSpecial;
       var battle = scene.currentBattle;
       if (!battle) return true;
 
       // 1. rival/scripted: battleType===TRAINER && gameMode.checkIfRival(scene)
       //    C1 (fail-closed): checkIfRival che solleva ⇒ escluso (mai
-      //    force-catch su un eventuale rival/scripted).
+      //    force-catch su un eventuale rival/scripted) — a meno di forceSpecial.
       var gMode = scene.gameMode;
       if (battle.battleType === BATTLE_TYPE_TRAINER && gMode &&
           typeof gMode.checkIfRival === 'function') {
@@ -176,9 +181,17 @@ const PvuCaptureOverride = (() => {
         try {
           rival = gMode.checkIfRival(scene) === true;
         } catch (e) {
-          return true;
+          if (!forceSpecial) {
+            return true;
+          }
         }
-        if (rival) { log('Esclusione: rival (scripted)'); return true; }
+        if (rival) {
+          if (!forceSpecial) {
+            log('Esclusione: rival (scripted)');
+            return true;
+          }
+          log('Casi speciali: rival (scripted) superato (forceSpecial ON)');
+        }
       }
 
       // 2. multi-target: deve esserci esattamente 1 nemico attivo
@@ -198,26 +211,38 @@ const PvuCaptureOverride = (() => {
       // 3. biome END
       var arena = scene.arena;
       if (arena && typeof arena.biomeType === 'number' && arena.biomeType === BIOME_END) {
-        log('Esclusione: biome END');
-        return true;
+        if (!forceSpecial) {
+          log('Esclusione: biome END');
+          return true;
+        }
+        log('Casi speciali: biome END superato (forceSpecial ON)');
       }
 
-      // 4. wave pre-final (C1: isWavePreFinal che solleva ⇒ escluso)
+      // 4. wave pre-final (C1: isWavePreFinal che solleva ⇒ escluso — a meno
+      //    di forceSpecial)
       if (gMode && typeof gMode.isWavePreFinal === 'function') {
         var preFinal = false;
         try {
           preFinal = gMode.isWavePreFinal(scene) === true;
         } catch (e) {
-          return true;
+          if (!forceSpecial) {
+            return true;
+          }
         }
-        if (preFinal) { log('Esclusione: wave pre-final'); return true; }
+        if (preFinal) {
+          if (!forceSpecial) {
+            log('Esclusione: wave pre-final');
+            return true;
+          }
+          log('Casi speciali: wave pre-final superato (forceSpecial ON)');
+        }
       }
 
       // 5. leggendario / OP-form pre-wave-1000 (gate nativo v3.1.8, COL
       //    16903330: T = currentBattle.waveIndex<=1000; branch leggendario =
       //    enemyField.some(active && species.isLegendSubOrMystical() && T);
       //    branch OP-form = enemyField.some(active && isOPForm()) && T).
-      //    C2 (fail-closed): throw ⇒ escluso.
+      //    C2 (fail-closed): throw ⇒ escluso — a meno di forceSpecial.
       try {
         var waveIdx = battle.waveIndex;
         if (typeof waveIdx === 'number' && waveIdx <= 1000) {
@@ -230,20 +255,30 @@ const PvuCaptureOverride = (() => {
           });
           if (preThousand) {
             log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
-            return true;
+            if (!forceSpecial) {
+              return true;
+            }
+            log('Casi speciali: leggendario/OP-form pre-wave-1000 superato (forceSpecial ON)');
           }
         }
       } catch (e) {
-        return true;
+        if (!forceSpecial) {
+          return true;
+        }
+        // forceSpecial ON: check failed, ma utente ha optato in — continua a B6
       }
 
-      // 6. boss-major segment >= 1 (fail-closed: segmento ignoto ⇒ escluso)
+      // 6. boss-major segment >= 1 (fail-closed: segmento ignoto ⇒ escluso —
+      //    a meno di forceSpecial)
       var target = enemies[0];
       if (target && typeof target.isBoss === 'function' && target.isBoss()) {
         var seg = target.bossSegmentIndex;
         if (typeof seg !== 'number' || seg >= 1) {
-          log('Esclusione: boss-major (segmentIndex=' + seg + ')');
-          return true;
+          if (!forceSpecial) {
+            log('Esclusione: boss-major (segmentIndex=' + seg + ')');
+            return true;
+          }
+          log('Casi speciali: boss-major superato (forceSpecial ON)');
         }
       }
 
@@ -851,6 +886,26 @@ const PvuCaptureOverride = (() => {
   }
 
   /**
+   * Toggle casi speciali (forceSpecial): bypass selettivo delle esclusioni
+   * deterministiche scripted/END/pre-final/leggendario/boss-major in
+   * isExcluded. B2 multi-target, "nessun nemico attivo" e l'outer catch
+   * restano unconditional fail-closed. Persistito via storage.setSettings.
+   * @param {boolean|undefined} val - valore desiderato (default: inverti)
+   * @returns {boolean} stato finale
+   */
+  function toggleForceSpecial(val) {
+    state.forceSpecial = val !== undefined ? !!val : !state.forceSpecial;
+
+    var storage = window.__pvu.storage;
+    if (storage && typeof storage.setSettings === 'function') {
+      storage.setSettings({ forceSpecial: state.forceSpecial });
+    }
+
+    log('Casi speciali (forceSpecial): ' + (state.forceSpecial ? 'ON' : 'OFF'));
+    return state.forceSpecial;
+  }
+
+  /**
    * Legge lo stato persistito all'avvio.
    * @returns {boolean} stato capture persistito
    */
@@ -861,6 +916,7 @@ const PvuCaptureOverride = (() => {
       var settings = storage.getSettings() || {};
       state.enabled = !!settings.capture;
       state.level = state.enabled ? 2 : 0;
+      if (typeof settings.forceSpecial === 'boolean') state.forceSpecial = settings.forceSpecial;
       return state.enabled;
     } catch (e) {
       warn('loadPersistedState fallito:', e);
@@ -889,6 +945,7 @@ const PvuCaptureOverride = (() => {
   function getState() {
     return {
       enabled: state.enabled,
+      forceSpecial: state.forceSpecial,
       level: state.level,
       level2Verified: state.level2Verified,
       ballCommandId: state.ballCommandId,
@@ -940,6 +997,7 @@ const PvuCaptureOverride = (() => {
     destroy: destroy,
     applyHooks: applyHooks,
     toggleCapture: toggleCapture,
+    toggleForceSpecial: toggleForceSpecial,
     getState: getState,
     applyLevel1: applyLevel1,
   };
