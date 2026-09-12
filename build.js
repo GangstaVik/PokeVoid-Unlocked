@@ -23,6 +23,7 @@ const FILES = [
   'src/voucher-editor.js',
   'src/ui/styles.js',
   'src/ui/floating-btn.js',
+  'src/ui/hotkey.js',
   'src/ui/roll-screen.js',
   'src/ui/skill-screen.js',
   'src/ui/voucher-screen.js',
