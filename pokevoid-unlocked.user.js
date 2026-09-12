@@ -2547,8 +2547,8 @@ const PvuCaptureOverride = (() => {
             return false;
           });
           if (preThousand) {
-            log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
             if (!forceSpecial) {
+              log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
               return true;
             }
             log('Casi speciali: leggendario/OP-form pre-wave-1000 superato (forceSpecial ON)');
