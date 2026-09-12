@@ -1,6 +1,7 @@
 // src/ui/skill-screen.js — UI Skill Points Editor (tab Skill)
 // FIX BUG 2: reads from activeSkillTree (per-run SP) + resolved champion ID
 const PvuSkillScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
   let registeredPhaseFn = null;
@@ -19,25 +20,25 @@ const PvuSkillScreen = (() => {
 
     const spTitle = document.createElement('div');
     spTitle.className = 'pvu-section-title';
-    spTitle.textContent = 'SKILL POINTS';
+    spTitle.textContent = t('skill.title');
     spSection.appendChild(spTitle);
 
     // Active champion display (readonly — shows the run's active champion)
     const champActiveLabel = document.createElement('div');
     champActiveLabel.className = 'pvu-toggle-label';
-    champActiveLabel.textContent = 'Champion attivo:';
+    champActiveLabel.textContent = t('skill.activeChampion');
     spSection.appendChild(champActiveLabel);
 
     const champActiveDisplay = document.createElement('div');
     champActiveDisplay.className = 'pvu-status ok';
     champActiveDisplay.id = 'pvu-champ-active';
-    champActiveDisplay.textContent = 'Rilevamento...';
+    champActiveDisplay.textContent = t('skill.detecting');
     spSection.appendChild(champActiveDisplay);
 
     // Champion selector (for manual override)
     const champLabel = document.createElement('div');
     champLabel.className = 'pvu-toggle-label';
-    champLabel.textContent = 'Seleziona Champion (override):';
+    champLabel.textContent = t('skill.selectChampion');
     champLabel.style.marginTop = '8px';
     spSection.appendChild(champLabel);
 
@@ -85,14 +86,14 @@ const PvuSkillScreen = (() => {
     versionWarning.className = 'pvu-warning';
     versionWarning.style.display = 'none';
     versionWarning.id = 'pvu-version-warning';
-    versionWarning.textContent = '⚠️ Champion skill version cambiata! Unlock precedenti potrebbero non essere validi.';
+    versionWarning.textContent = t('skill.versionWarning');
     spSection.appendChild(versionWarning);
 
     // Status
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-skill-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('skill.waiting');
     spSection.appendChild(statusEl);
 
     containerEl.appendChild(spSection);
@@ -103,7 +104,7 @@ const PvuSkillScreen = (() => {
 
     const lockedTitle = document.createElement('div');
     lockedTitle.className = 'pvu-section-title';
-    lockedTitle.textContent = 'SKILL BLOCCATE';
+    lockedTitle.textContent = t('skill.lockedTitle');
     lockedSection.appendChild(lockedTitle);
 
     const lockedList = document.createElement('div');
@@ -148,7 +149,7 @@ const PvuSkillScreen = (() => {
     const champActiveDisplay = containerEl.querySelector('#pvu-champ-active');
     if (champActiveDisplay) {
       const activeChampId = editor.getSelectedChampionId();
-      champActiveDisplay.textContent = activeChampId || 'Nessuna run attiva';
+      champActiveDisplay.textContent = activeChampId || t('skill.noActiveRun');
     }
 
     // Aggiorna champion selector (populated from championData keys)
@@ -159,7 +160,7 @@ const PvuSkillScreen = (() => {
       if (gameData && gameData.championData) {
         const champs = Object.keys(gameData.championData);
         if (champSelect.options.length !== champs.length + 1) {
-          champSelect.innerHTML = '<option value="">-- Seleziona Champion --</option>';
+          champSelect.innerHTML = '<option value="">-- ' + t('skill.selectPlaceholder') + ' --</option>';
           for (let i = 0; i < champs.length; i++) {
             const opt = document.createElement('option');
             opt.value = champs[i];
@@ -177,7 +178,7 @@ const PvuSkillScreen = (() => {
       const ver = editor.checkVersionWarning();
       versionWarning.style.display = ver.changed ? 'block' : 'none';
       if (ver.changed) {
-        versionWarning.textContent = '⚠️ Champion skill version cambiata! (era ' + ver.oldVersion + ', ora ' + ver.newVersion + ')';
+        versionWarning.textContent = t('skill.versionWarning') + ' (was ' + ver.oldVersion + ', now ' + ver.newVersion + ')';
       }
     }
 
@@ -189,7 +190,7 @@ const PvuSkillScreen = (() => {
       if (unlockables.length === 0) {
         const info = document.createElement('div');
         info.className = 'pvu-info';
-        info.textContent = 'Nessuna skill bloccata (o nessun champion attivo nella run)';
+        info.textContent = t('skill.noneLocked');
         lockedList.appendChild(info);
       } else {
         for (let i = 0; i < unlockables.length; i++) {
@@ -204,12 +205,12 @@ const PvuSkillScreen = (() => {
 
           const metaEl = document.createElement('div');
           metaEl.className = 'pvu-skill-meta';
-          metaEl.textContent = 'Cat: ' + skill.category + ' | Lv: ' + skill.requiredLevel;
+          metaEl.textContent = t('skill.category') + skill.category + ' | Lv: ' + skill.requiredLevel;
           item.appendChild(metaEl);
 
           const unlockBtn = document.createElement('button');
           unlockBtn.className = 'pvu-btn pvu-btn-sm pvu-btn-outline';
-          unlockBtn.textContent = 'Sblocca';
+          unlockBtn.textContent = t('skill.unlock');
           unlockBtn.addEventListener('click', function() {
             const result = editor.unlockSkill(skill.skillId, skill.category);
             if (result.ok) {
@@ -217,7 +218,7 @@ const PvuSkillScreen = (() => {
               refreshUI();
             } else {
               item.style.borderColor = '#f44336';
-              setTimeout(function() { item.style.borderColor = '#e94560'; }, 1500);
+              setTimeout(function() { item.style.borderColor = '#ff5c5c'; }, 1500);
             }
           });
           item.appendChild(unlockBtn);
@@ -233,7 +234,7 @@ const PvuSkillScreen = (() => {
       const sp = editor.getSkillPoints();
       const champId = editor.getSelectedChampionId();
       const locked = (editor.getLockedSkills && editor.getLockedSkills()) || [];
-      statusEl.textContent = 'SP: ' + sp + ' | Champion: ' + (champId || 'nessuno') + ' | Bloccate: ' + locked.length;
+      statusEl.textContent = t('skill.statusLocked') + sp + ' | Champion: ' + (champId || 'none') + ' | ' + t('skill.locked') + locked.length;
       statusEl.className = 'pvu-status ok';
     }
   }
