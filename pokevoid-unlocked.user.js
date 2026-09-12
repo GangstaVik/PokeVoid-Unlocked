@@ -3782,7 +3782,7 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
         return !!(gd && typeof gd.getEssenceCount === 'function' && typeof gd.addEssence === 'function' && typeof gd.tryConsumeEssence === 'function');
     }
 
-    // BFS to depth <= MAX_CHILD_DEPTH, capped at MAX_CHILD_SCAN nodes per level.
+    // BFS to depth <= MAX_CHILD_DEPTH, capped at MAX_CHILD_SCAN scanned properties overall.
     // Returns the first object with 'SMITTY' key (the type enum dictionary).
     function findTypeEnum(gd) {
         if (!gd) return null;
@@ -3793,18 +3793,32 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
             var next = [];
             for (var i = 0; i < queue.length; i += 1) {
                 var o = queue[i];
-                if (o && typeof o === 'object' && 'SMITTY' in o) return o;
-                for (var key in o) {
-                    var v = o[key];
-                    if (v && typeof v === 'object') next.push(v);
-                    scanned += 1;
-                    if (scanned >= MAX_CHILD_SCAN) break;
+                try {
+                    if (o && typeof o === 'object' && 'SMITTY' in o) return o;
+                    for (var key in o) {
+                        var v = o[key];
+                        if (v && typeof v === 'object') next.push(v);
+                        scanned += 1;
+                        if (scanned >= MAX_CHILD_SCAN) break;
+                    }
+                } catch (e) {
+                    // getter che lancia: skip questo oggetto, continua la scansione.
                 }
             }
             queue = next;
             depth += 1;
         }
         return null;
+    }
+
+    // B4: un oggetto con chiave 'SMITTY' ma nessun valore numerico risolvibile
+    // non è un enum valido → enumFound resterebbe bugiardo. Fallback in tal caso.
+    function isTypeEnumValid(e) {
+        if (!e) return false;
+        for (var i = 0; i < TYPE_LIST.length; i += 1) {
+            if (typeof e[TYPE_LIST[i]] === 'number') return true;
+        }
+        return false;
     }
 
     // Safety net (SF10): if enum not found after 3-level scan, fall back to
@@ -3829,17 +3843,20 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
 
     function getCount(id) {
         if (!gameData || typeof gameData.getEssenceCount !== 'function' || typeof id !== 'number') return 0;
-        try { return gameData.getEssenceCount(id) || 0; } catch (e) { return 0; }
+        try {
+            var n = Number(gameData.getEssenceCount(id));
+            return isFinite(n) ? n : 0;
+        } catch (e) { return 0; }
     }
 
     function applyEssence(key, rawTarget) {
         if (!ready) return { ok: false, reason: 'editor non pronto (API Type Essence non trovata)' };
         var rawStr = String(rawTarget).trim();
         if (rawStr === '') return { ok: false, reason: 'valore vuoto: inserisci un numero' };
+        if (!/^\d+$/.test(rawStr)) return { ok: false, reason: 'valore non valido (solo cifre): ' + rawTarget };
         var ids = resolveTypeIds();
         if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'tipo non disponibile nel build corrente: ' + key };
-        var target = Math.max(0, Math.floor(Number(rawStr)));
-        if (!isFinite(target)) return { ok: false, reason: 'valore non valido: ' + rawTarget };
+        var target = Math.min(Math.floor(Number(rawStr)), Number.MAX_SAFE_INTEGER);
         var id = ids[key];
         var current = getCount(id);
         var delta = target - current;
@@ -3858,7 +3875,6 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
         var counts = {};
         var total = 0;
         var ids = resolveTypeIds();
-        var mod = gameData && typeof gameData.getPermaCollectedTypeModifier === 'function' ? gameData.getPermaCollectedTypeModifier() : null;
         var i, k;
         if (ids) {
             for (i = 0; i < TYPE_LIST.length; i += 1) {
@@ -3883,6 +3899,7 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
         gameData = findGameData();
         ready = isApiAvailable(gameData);
         typeEnum = ready ? findTypeEnum(gameData) : null;
+        if (typeEnum && !isTypeEnumValid(typeEnum)) typeEnum = null;
         usingFallback = false;
         if (!ready) {
             log('API Type Essence non trovata — editor disattivato (status onesto)');
