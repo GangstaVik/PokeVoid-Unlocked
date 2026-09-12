@@ -2846,10 +2846,14 @@ const PvuCaptureOverride = (() => {
    */
   function forceInject(scene, turnCommands, fi, t, n, s, phase) {
     try {
-      // FIX F: null-guard su turnCommands — senza turnCommands non c'è
-      // nessun ramo successo da replicare; fail-safe silenzioso (niente
-      // errorCount++, niente warn: non è un errore del wrapper).
-      if (!turnCommands || !Array.isArray(turnCommands)) return false;
+      // FIX F: guardia su turnCommands — in battle TRAINER/scripted
+      // turnCommands è un oggetto {} (costruttore Battle bundle v3.1.8;
+      // il ||=[] verso array esiste solo nel path wild battle). L'accesso
+      // per chiave del nativo (turnCommands[fieldIndex]) è compatibile con
+      // entrambi i tipi, quindi la guardia scarta solo null/undefined.
+      // Fail-safe silenzioso (niente errorCount++, niente warn: non è un
+      // errore del wrapper).
+      if (!turnCommands || typeof turnCommands !== 'object') return false;
 
       var enemies = (scene.getEnemyField() || []).filter(function(p) {
         return p && typeof p.isActive === 'function' && p.isActive(true);
