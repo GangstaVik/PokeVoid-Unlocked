@@ -1,6 +1,7 @@
 // src/ui/battle-screen.js — UI Battle: toggle Sempre Shiny + Cattura Tutto (tab Battle)
 // Segue il pattern di roll-screen.js: createToggle, setSwitchState, refreshUI 2s
 const PvuBattleScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuBattleScreen]';
   let containerEl = null;
   let refreshTimer = null;
@@ -22,13 +23,13 @@ const PvuBattleScreen = (() => {
 
     const encounterTitle = document.createElement('div');
     encounterTitle.className = 'pvu-section-title';
-    encounterTitle.textContent = 'SEMPRE SHINY';
+    encounterTitle.textContent = t('battle.shinyTitle');
     encounterSection.appendChild(encounterTitle);
 
     var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
     var shinyResult = createToggle(
-      'Sempre Shiny',
-      'Ogni Pokemon incontrato nasce shiny (wild, boss, rival, legendary)',
+      t('battle.shinyName'),
+      t('battle.shinyDesc'),
       !!encounterState.shiny,
       function(val) {
         window.__pvu.encounterOverride?.toggleShiny?.(val);
@@ -41,7 +42,7 @@ const PvuBattleScreen = (() => {
     var shinyStatus = document.createElement('div');
     shinyStatus.className = 'pvu-status';
     shinyStatus.id = 'pvu-battle-shiny-status';
-    shinyStatus.textContent = 'In attesa...';
+    shinyStatus.textContent = t('battle.waiting');
     encounterSection.appendChild(shinyStatus);
 
     containerEl.appendChild(encounterSection);
@@ -52,13 +53,13 @@ const PvuBattleScreen = (() => {
 
     const captureTitle = document.createElement('div');
     captureTitle.className = 'pvu-section-title';
-    captureTitle.textContent = 'CATTURA TUTTO';
+    captureTitle.textContent = t('battle.catchTitle');
     captureSection.appendChild(captureTitle);
 
     var captureState = window.__pvu.captureOverride?.getState?.() || {};
     var captureResult = createToggle(
-      'Cattura Tutto',
-      'Quando il toggle Cattura è attivo: la prima Pokéball su un bersaglio singolo (non rivale/non scripted) cattura sempre.',
+      t('battle.catchName'),
+      t('battle.catchDesc'),
       !!captureState.enabled,
       function(val) {
         window.__pvu.captureOverride?.toggleCapture?.(val);
@@ -68,8 +69,8 @@ const PvuBattleScreen = (() => {
     toggleRefs.capture = captureResult.switchEl;
 
     var forceSpecialResult = createToggle(
-      'Cattura casi speciali',
-      'Consente la cattura forzata anche su incontri scripted, finali, speciali e boss-major (rischio: progressione quest). Default OFF.',
+      t('battle.specialsName'),
+      t('battle.specialsDesc'),
       !!captureState.forceSpecial,
       function(val) {
         window.__pvu.captureOverride?.toggleForceSpecial?.(val);
@@ -82,7 +83,7 @@ const PvuBattleScreen = (() => {
     var captureStatus = document.createElement('div');
     captureStatus.className = 'pvu-status';
     captureStatus.id = 'pvu-battle-capture-status';
-    captureStatus.textContent = 'In attesa...';
+    captureStatus.textContent = t('battle.waiting');
     captureSection.appendChild(captureStatus);
 
     containerEl.appendChild(captureSection);
@@ -151,7 +152,7 @@ const PvuBattleScreen = (() => {
 
     var shinyStatusEl = containerEl.querySelector('#pvu-battle-shiny-status');
     if (shinyStatusEl) {
-      var encHooks = encounterState.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      var encHooks = encounterState.hooksApplied ? t('roll.hooksActive') : t('roll.waitingHooks');
       var encDetail = encounterState.hooksApplied
         ? ' — Pokemon: ' + (encounterState.hookStats?.pokemonPatched || 0)
         : '';
@@ -168,35 +169,34 @@ const PvuBattleScreen = (() => {
       var levelText = '—';
       if (captureState.level === 2) {
         if (!captureState.hooksApplied) {
-          levelText = 'wrapper NON attivo (in attesa battle)';
+          levelText = t('battle.wrapperNotActive');
         } else {
           // Ladder tri-state onesto: wrapper → id confermato → override armato
-          var rungs = ['wrapper attivo'];
-          if (captureState.ballCommandId !== null) rungs.push('id confermato');
-          if (captureState.rollOverrideReady === true) rungs.push('override armato');
+          var rungs = [t('battle.wrapperActive')];
+          if (captureState.ballCommandId !== null) rungs.push(t('battle.idConfirmed'));
+          if (captureState.rollOverrideReady === true) rungs.push(t('battle.overrideArmed'));
           levelText = rungs.join(' / ');
           if (captureState.rollOverrideReady === false) {
-            levelText = rungs[0] + ' — override probabilità NON attivo';
+            levelText = rungs[0] + ' ' + t('battle.overrideNotActive');
           }
         }
       } else if (captureState.level === 1) {
-        levelText = 'L1 (fallback) ⚠️';
+        levelText = t('battle.l1Fallback');
       }
-      var badge = (captureState.level === 2 && captureState.rollOverrideReady === true) ? ' ✅' : '';
       var forced = captureState.injectedCount || 0;
       var realized = captureState.capturedCount || 0;
       var errors = captureState.errorCount || 0;
       var txt =
-        'Livello: ' + levelText + badge +
-        ' | Catture forzate: ' + forced +
-        ' | Catture realizzate: ' + realized;
-      txt += ' | Casi speciali: ' + (captureState.forceSpecial ? 'ON' : 'OFF');
-      if (errors > 0) txt += ' | Errori: ' + errors;
+        t('battle.level') + levelText +
+        ' | ' + t('battle.forcedCatches') + forced +
+        ' | ' + t('battle.realizedCatches') + realized;
+      txt += ' | ' + t('battle.specialCases') + (captureState.forceSpecial ? 'ON' : 'OFF');
+      if (errors > 0) txt += ' | ' + t('battle.errors') + errors;
       captureStatusEl.textContent = txt;
       captureStatusEl.className = 'pvu-status ' +
         (errors >= 3 ? 'err' : errors > 0 ? 'warn' : 'ok');
     } else if (captureStatusEl) {
-      captureStatusEl.textContent = 'Cattura Tutto disattivata';
+      captureStatusEl.textContent = t('battle.disabled');
       captureStatusEl.className = 'pvu-status';
     }
   }
