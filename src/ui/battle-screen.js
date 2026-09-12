@@ -67,6 +67,17 @@ const PvuBattleScreen = (() => {
     captureSection.appendChild(captureResult.row);
     toggleRefs.capture = captureResult.switchEl;
 
+    var forceSpecialResult = createToggle(
+      'Cattura casi speciali',
+      'Consente la cattura forzata anche su incontri scripted, finali, speciali e boss-major (rischio: progressione quest). Default OFF.',
+      !!captureState.forceSpecial,
+      function(val) {
+        window.__pvu.captureOverride?.toggleForceSpecial?.(val);
+      }
+    );
+    captureSection.appendChild(forceSpecialResult.row);
+    toggleRefs.forceSpecial = forceSpecialResult.switchEl;
+
     // Status row cattura
     var captureStatus = document.createElement('div');
     captureStatus.className = 'pvu-status';
@@ -150,6 +161,7 @@ const PvuBattleScreen = (() => {
 
     // --- Capture toggle + status ---
     setSwitchState(toggleRefs.capture, !!captureState.enabled);
+    if (toggleRefs.forceSpecial) setSwitchState(toggleRefs.forceSpecial, !!captureState.forceSpecial);
 
     var captureStatusEl = containerEl.querySelector('#pvu-battle-capture-status');
     if (captureStatusEl && captureState.enabled) {
@@ -178,6 +190,7 @@ const PvuBattleScreen = (() => {
         'Livello: ' + levelText + badge +
         ' | Catture forzate: ' + forced +
         ' | Catture realizzate: ' + realized;
+      txt += ' | Casi speciali: ' + (captureState.forceSpecial ? 'ON' : 'OFF');
       if (errors > 0) txt += ' | Errori: ' + errors;
       captureStatusEl.textContent = txt;
       captureStatusEl.className = 'pvu-status ' +
