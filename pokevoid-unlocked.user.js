@@ -2846,13 +2846,14 @@ const PvuCaptureOverride = (() => {
    */
   function forceInject(scene, turnCommands, fi, t, n, s, phase) {
     try {
-      // FIX F: guardia su turnCommands — in battle TRAINER/scripted
-      // turnCommands è un oggetto {} (costruttore Battle bundle v3.1.8;
-      // il ||=[] verso array esiste solo nel path wild battle). L'accesso
-      // per chiave del nativo (turnCommands[fieldIndex]) è compatibile con
-      // entrambi i tipi, quindi la guardia scarta solo null/undefined.
-      // Fail-safe silenzioso (niente errorCount++, niente warn: non è un
-      // errore del wrapper).
+      // FIX F: turnCommands è SEMPRE un oggetto in ogni battle type (bundle v3.1.8):
+      // Battle.incrementTurn rialloca this.turnCommands = Object.fromEntries(...)
+      // a inizio turno e dentro scene.newBattle — mai un array. I ||=[] nei node
+      // handler (wild E trainer) sono no-op ({}/null-map sono truthy); il
+      // turnCommands=[] di setupBattleFlow gira solo al run-start, prima della
+      // battle successiva. La vecchia guardia Array.isArray disattivava forceInject
+      // in OGNI battle (regressione introdotta in fa53abd, shipped in v1.5.0).
+      // Scarta solo null/undefined.
       if (!turnCommands || typeof turnCommands !== 'object') return false;
 
       var enemies = (scene.getEnemyField() || []).filter(function(p) {
