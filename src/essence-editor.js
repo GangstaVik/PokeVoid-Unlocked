@@ -1,12 +1,42 @@
-/* PokeVoid-Unlocked — Type Essence editor (API discovery at runtime, no hardcoded enum ids). */
+/* PokeVoid-Unlocked — Type Essence editor (canonical 23-type id map; runtime enum used for verification only). */
 (function () {
     'use strict';
-    var TYPE_LIST = ['NORMAL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'ICE', 'FIGHTING', 'POISON', 'GROUND', 'FLYING', 'PSYCHIC', 'BUG', 'ROCK', 'GHOST', 'DRAGON', 'DARK', 'STEEL', 'FAIRY', 'SMITTY', 'GLITCH', 'GEN_ONE'];
+    // Canonical map: all 23 native type ids (enum S, bundle v3.1.8).
+    // Source of truth for key→id resolution. NEVER derived from list order or BFS.
+    var TYPE_IDS = {
+        UNKNOWN: -1,
+        NORMAL: 0,
+        FIGHTING: 1,
+        FLYING: 2,
+        POISON: 3,
+        GROUND: 4,
+        ROCK: 5,
+        BUG: 6,
+        GHOST: 7,
+        STEEL: 8,
+        FIRE: 9,
+        WATER: 10,
+        GRASS: 11,
+        ELECTRIC: 12,
+        PSYCHIC: 13,
+        ICE: 14,
+        DRAGON: 15,
+        DARK: 16,
+        FAIRY: 17,
+        STELLAR: 18,
+        ALL: 19,
+        SMITTY: 20,
+        GLITCH: 21,
+        GEN_ONE: 22
+    };
+    // Native enum order (UNKNOWN → GEN_ONE). The combobox must use this order
+    // so the selected value always maps to the correct native id.
+    var TYPE_ORDER = Object.keys(TYPE_IDS);
     var MAX_CHILD_SCAN = 40;
     var MAX_CHILD_DEPTH = 3;
     var gameData = null;
     var typeEnum = null;
-    var usingFallback = false;
+    var enumMismatch = false;
     var ready = false;
 
     function log(msg) { if (window.__pvu && typeof window.__pvu.log === 'function') window.__pvu.log('[essence-editor] ' + msg); }
@@ -50,32 +80,35 @@
         return null;
     }
 
-    // B4: un oggetto con chiave 'SMITTY' ma nessun valore numerico risolvibile
-    // non è un enum valido → enumFound resterebbe bugiardo. Fallback in tal caso.
+    // L'enum è considerato valido se contiene almeno un valore numerico per una chiave canonica.
     function isTypeEnumValid(e) {
         if (!e) return false;
-        for (var i = 0; i < TYPE_LIST.length; i += 1) {
-            if (typeof e[TYPE_LIST[i]] === 'number') return true;
+        for (var i = 0; i < TYPE_ORDER.length; i += 1) {
+            if (typeof e[TYPE_ORDER[i]] === 'number') return true;
         }
         return false;
     }
 
-    // Safety net (SF10): if enum not found after 3-level scan, fall back to
-    // hardcoded 21-key list with id = index in TYPE_LIST.
-    // Acceptable for v1.5 cut; marked usingFallback and visible in UI.
-    function fallbackIds() {
-        var m = {};
-        for (var i = 0; i < TYPE_LIST.length; i += 1) m[TYPE_LIST[i]] = i;
-        usingFallback = true;
-        return m;
+    // Confronta l'enum runtime con la mappa canonica. Ritorna l'elenco delle chiavi
+    // discordanti (stringa leggibile per il log); array vuoto = coerente.
+    function verifyEnum(e) {
+        var mismatches = [];
+        var i, k;
+        for (i = 0; i < TYPE_ORDER.length; i += 1) {
+            k = TYPE_ORDER[i];
+            if (typeof e[k] !== 'number' || e[k] !== TYPE_IDS[k]) {
+                mismatches.push(k + '=' + e[k] + ' (canonico ' + TYPE_IDS[k] + ')');
+            }
+        }
+        return mismatches;
     }
 
+    // ids sempre dalla mappa canonica: nessun fallback id=indice, nessuna dipendenza dal BFS.
     function resolveTypeIds() {
-        var src = typeEnum || fallbackIds();
         var ids = {};
         var i;
-        for (i = 0; i < TYPE_LIST.length; i += 1) {
-            ids[TYPE_LIST[i]] = src[TYPE_LIST[i]];
+        for (i = 0; i < TYPE_ORDER.length; i += 1) {
+            ids[TYPE_ORDER[i]] = TYPE_IDS[TYPE_ORDER[i]];
         }
         return ids;
     }
@@ -116,8 +149,8 @@
         var ids = resolveTypeIds();
         var i, k;
         if (ids) {
-            for (i = 0; i < TYPE_LIST.length; i += 1) {
-                k = TYPE_LIST[i];
+            for (i = 0; i < TYPE_ORDER.length; i += 1) {
+                k = TYPE_ORDER[i];
                 counts[k] = (typeof ids[k] === 'number') ? getCount(ids[k]) : null;
                 if (typeof counts[k] === 'number') total += counts[k];
             }
@@ -125,29 +158,37 @@
         return {
             ready: ready,
             enumFound: !!typeEnum,
-            usingFallback: usingFallback,
+            enumMismatch: enumMismatch,
             counts: counts,
             total: total
         };
     }
 
-    // Re-callable (B3): lazy init on first "Essenze" tab render.
-    // findGameData() returns null before battle scene loads, so document-start
-    // init would freeze ready=false forever (no polling needed).
+    // Re-callable: lazy init on first "Essenze" tab render.
     function init() {
         gameData = findGameData();
         ready = isApiAvailable(gameData);
         typeEnum = ready ? findTypeEnum(gameData) : null;
         if (typeEnum && !isTypeEnumValid(typeEnum)) typeEnum = null;
-        usingFallback = false;
+        enumMismatch = false;
         if (!ready) {
             log('API Type Essence non trovata — editor disattivato (status onesto)');
             return;
         }
-        log('Enum tipi: ' + (typeEnum ? 'trovato' : 'NON trovato (fallback 21 chiavi, id=indice)') + ' | 21 tipi risolti: ' + (resolveTypeIds() ? 'si' : 'no'));
+        if (typeEnum) {
+            var mm = verifyEnum(typeEnum);
+            enumMismatch = mm.length > 0;
+            if (enumMismatch) {
+                log('AVVISO: enum runtime non coincide con la mappa canonica: ' + mm.join(', ') + ' — usati gli id canonici (v3.1.8)');
+            } else {
+                log('Enum tipi verificato: 23/23 corrispondenze con la mappa canonica');
+            }
+        } else {
+            log('Enum tipi non trovato: usata la mappa canonica hardcoded (23 tipi) — nessun fallback id=indice');
+        }
     }
 
-    function destroy() { gameData = null; typeEnum = null; ready = false; usingFallback = false; }
+    function destroy() { gameData = null; typeEnum = null; ready = false; enumMismatch = false; }
 
     window.__pvu = window.__pvu || {};
     window.__pvu.essenceEditor = {
@@ -155,7 +196,8 @@
         destroy: destroy,
         getState: getState,
         applyEssence: applyEssence,
-        TYPE_LIST: TYPE_LIST.slice(),
+        TYPE_ORDER: TYPE_ORDER.slice(),
+        TYPE_IDS: resolveTypeIds(),
         isReady: function () { return ready; }
     };
 })();
