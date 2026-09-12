@@ -18,6 +18,7 @@ const FILES = [
   'src/capture-override.js',
   'src/money-override.js',
   'src/skill-tree-editor.js',
+  'src/essence-editor.js',
   'src/voucher-editor.js',
   'src/ui/styles.js',
   'src/ui/floating-btn.js',
