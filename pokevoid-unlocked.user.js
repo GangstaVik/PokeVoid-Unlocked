@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokeVoid-Unlocked
 // @namespace    local.pokevoid-unlocked
-// @version      1.5.0
+// @version      1.5.1
 // @description  Skill editor, roll controller, money override per PokéVoid
 // @author       PokeRogueMOD
 // @match        https://pokevoid.com/*
@@ -17,7 +17,7 @@
 
 // --- src/utils/config.js ---
 const PvuConfig = {
-  VERSION: '1.5.0',
+  VERSION: '1.5.1',
   PREFIX: 'data_pvu_',
   BUILD_VERSION_FALLBACK: 'v3.1.8',
   MAX_SAFE_INTEGER: Number.MAX_SAFE_INTEGER,
