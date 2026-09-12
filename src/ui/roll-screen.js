@@ -2,6 +2,7 @@
 // PARTE 2: rimossi toggle morti (freeReroll, poolQuality)
 // Luck Lock: influisce SOLO sulle offerte del roll (getModifierTypeOptions su), non su party luck/battle
 const PvuRollScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
   let refreshTimer = null;
@@ -23,11 +24,11 @@ const PvuRollScreen = (() => {
 
     const rerollTitle = document.createElement('div');
     rerollTitle.className = 'pvu-section-title';
-    rerollTitle.textContent = 'ROLL CONTROLLER';
+    rerollTitle.textContent = t('roll.title');
     rerollSection.appendChild(rerollTitle);
 
     // Cost Override
-    const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
+    const costOverrideResult = createToggle(t('roll.noCost'), t('roll.noCostDesc'), false, function(val) {
       window.__pvu.rollController.toggleCostOverride(val);
     });
     rerollSection.appendChild(costOverrideResult.row);
@@ -41,7 +42,7 @@ const PvuRollScreen = (() => {
 
     const luckTitle = document.createElement('div');
     luckTitle.className = 'pvu-section-title';
-    luckTitle.textContent = 'LUCK LOCK';
+    luckTitle.textContent = t('roll.luckLock');
     luckSection.appendChild(luckTitle);
 
     // Luck slider
@@ -72,7 +73,7 @@ const PvuRollScreen = (() => {
     luckSection.appendChild(luckSliderRow);
 
     // Luck Lock toggle
-    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per le offerte del roll', false, function(val) {
+    const luckLockResult = createToggle('Lock luck', t('roll.luckLockDesc'), false, function(val) {
       window.__pvu.rollController.toggleLuckLock(val);
     });
     luckSection.appendChild(luckLockResult.row);
@@ -81,7 +82,7 @@ const PvuRollScreen = (() => {
     // Luck info
     const luckInfo = document.createElement('div');
     luckInfo.className = 'pvu-status';
-    luckInfo.textContent = '1-7 (5 = default). Influenza la qualità delle offerte del roll; non tocca il party luck delle battle e non raggiunge shop/ball-lock.';
+    luckInfo.textContent = t('roll.luckInfo');
     luckSection.appendChild(luckInfo);
 
     containerEl.appendChild(luckSection);
@@ -92,7 +93,7 @@ const PvuRollScreen = (() => {
 
     const itemTitle = document.createElement('div');
     itemTitle.className = 'pvu-section-title';
-    itemTitle.textContent = 'ITEM COUNT';
+    itemTitle.textContent = t('roll.itemCount');
     itemSection.appendChild(itemTitle);
 
     const sliderRow = document.createElement('div');
@@ -123,7 +124,7 @@ const PvuRollScreen = (() => {
 
     const itemInfo = document.createElement('div');
     itemInfo.className = 'pvu-status';
-    itemInfo.textContent = 'Aggiunge opzioni alle offerte del roll (es: +2 = 5 opzioni con le 3 base).';
+    itemInfo.textContent = t('roll.itemInfo');
     itemSection.appendChild(itemInfo);
 
     containerEl.appendChild(itemSection);
@@ -134,13 +135,13 @@ const PvuRollScreen = (() => {
 
     const statusTitle = document.createElement('div');
     statusTitle.className = 'pvu-section-title';
-    statusTitle.textContent = 'STATO HOOK';
+    statusTitle.textContent = t('roll.hookStatus');
     statusSection.appendChild(statusTitle);
 
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-roll-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('roll.waiting');
     statusSection.appendChild(statusEl);
 
     containerEl.appendChild(statusSection);
@@ -213,7 +214,7 @@ const PvuRollScreen = (() => {
     // Sync status text
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
-      const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      const hookStatus = state.hooksApplied ? t('roll.hooksActive') : t('roll.waitingHooks');
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
       const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
       const patchInfo = state.patchedPhaseCount > 0 ? ' | Phase patchate: ' + state.patchedPhaseCount : '';
