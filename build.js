@@ -25,6 +25,7 @@ const FILES = [
   'src/ui/roll-screen.js',
   'src/ui/skill-screen.js',
   'src/ui/voucher-screen.js',
+  'src/ui/essence-screen.js',
   'src/ui/battle-screen.js',
   'src/ui/panel.js',
   'src/main.js',

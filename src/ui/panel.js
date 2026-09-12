@@ -57,12 +57,14 @@ const PvuPanel = (() => {
     const tabSkill = createTab('🌳 Skill', 'skill');
     const tabVoucher = createTab('🎟️ Voucher', 'voucher');
     const tabBattle = createTab('🎯 Battle', 'battle');
+    const tabEssence = createTab('✨ Essenze', 'essence');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
     tabs.appendChild(tabSkill);
     tabs.appendChild(tabVoucher);
     tabs.appendChild(tabBattle);
+    tabs.appendChild(tabEssence);
     panelEl.appendChild(tabs);
 
     // Tab content area
@@ -148,6 +150,10 @@ const PvuPanel = (() => {
       case 'battle':
         window.__pvu.battleScreen.render(content);
         activeScreen = window.__pvu.battleScreen;
+        break;
+      case 'essence':
+        window.__pvu.essenceScreen.render(content);
+        activeScreen = window.__pvu.essenceScreen;
         break;
     }
   }
