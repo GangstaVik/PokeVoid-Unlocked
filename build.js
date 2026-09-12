@@ -9,6 +9,7 @@ const OUT = path.join(ROOT, 'pokevoid-unlocked.user.js');
 // Ordine di build (dependency order)
 const FILES = [
   'src/utils/config.js',
+  'src/i18n.js',
   'src/utils/helpers.js',
   'src/utils/storage.js',
   'src/game-bridge.js',
