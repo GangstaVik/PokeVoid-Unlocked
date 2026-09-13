@@ -122,24 +122,24 @@
     }
 
     function applyEssence(key, rawTarget) {
-        if (!ready) return { ok: false, reason: 'editor non pronto (API Type Essence non trovata)' };
+        if (!ready) return { ok: false, reason: 'editor not ready (Type Essence API not found)' };
         var rawStr = String(rawTarget).trim();
-        if (rawStr === '') return { ok: false, reason: 'valore vuoto: inserisci un numero' };
-        if (!/^\d+$/.test(rawStr)) return { ok: false, reason: 'valore non valido (solo cifre): ' + rawTarget };
+        if (rawStr === '') return { ok: false, reason: 'empty value: enter a number' };
+        if (!/^\d+$/.test(rawStr)) return { ok: false, reason: 'invalid value (digits only): ' + rawTarget };
         var ids = resolveTypeIds();
-        if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'tipo non disponibile nel build corrente: ' + key };
+        if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'type not available in current build: ' + key };
         var target = Math.min(Math.floor(Number(rawStr)), Number.MAX_SAFE_INTEGER);
         var id = ids[key];
-        if (id < 0) return { ok: false, reason: 'tipo ' + key + ' (id ' + id + ') non scrivibile' };
+        if (id < 0) return { ok: false, reason: 'type ' + key + ' (id ' + id + ') not writable' };
         var current = getCount(id);
         var delta = target - current;
         if (delta === 0) return { ok: true, current: current, key: key, target: target };
         if (delta > 0) {
-            try { gameData.addEssence(id, delta); } catch (e) { return { ok: false, reason: 'addEssence fallita: ' + e.message }; }
+            try { gameData.addEssence(id, delta); } catch (e) { return { ok: false, reason: 'addEssence failed: ' + e.message }; }
         } else {
             try {
-                if (gameData.tryConsumeEssence(id, -delta) !== true) return { ok: false, reason: 'tryConsumeEssence rifiutata' };
-            } catch (e) { return { ok: false, reason: 'tryConsumeEssence fallita: ' + e.message }; }
+                if (gameData.tryConsumeEssence(id, -delta) !== true) return { ok: false, reason: 'tryConsumeEssence refused' };
+            } catch (e) { return { ok: false, reason: 'tryConsumeEssence failed: ' + e.message }; }
         }
         return { ok: true, key: key, target: target, current: current };
     }
@@ -173,19 +173,19 @@
         if (typeEnum && !isTypeEnumValid(typeEnum)) typeEnum = null;
         enumMismatch = false;
         if (!ready) {
-            log('API Type Essence non trovata — editor disattivato (status onesto)');
+            log('Type Essence API not found — editor disabled (honest status)');
             return;
         }
         if (typeEnum) {
             var mm = verifyEnum(typeEnum);
             enumMismatch = mm.length > 0;
             if (enumMismatch) {
-                log('AVVISO: enum runtime non coincide con la mappa canonica: ' + mm.join(', ') + ' — usati gli id canonici (v3.1.8)');
+                log('WARNING: runtime enum does not match canonical map: ' + mm.join(', ') + ' — canonical ids used (v3.1.8)');
             } else {
-                log('Enum tipi verificato: 23/23 corrispondenze con la mappa canonica');
+                log('Type enum verified: 23/23 matches with canonical map');
             }
         } else {
-            log('Enum tipi non trovato: usata la mappa canonica hardcoded (23 tipi) — nessun fallback id=indice');
+            log('Type enum not found: hardcoded canonical map used (23 types) — no id=index fallback');
         }
     }
 

@@ -21,16 +21,16 @@ const PvuStorage = (() => {
       const key = 'data_' + username;
       const data = localStorage.getItem(key);
       if (!data) {
-        warn('Nessun save da backupare per utente:', username);
+        warn('No save to back up for user:', username);
         return { ok: true }; // nothing to backup
       }
       const ts = Date.now();
       const backupKey = 'data_pvu_backup_' + ts + '_' + username;
       localStorage.setItem(backupKey, data);
-      log('Backup creato:', backupKey, '(' + data.length + ' bytes)');
+      log('Backup created:', backupKey, '(' + data.length + ' bytes)');
       return { ok: true, key: backupKey };
     } catch (e) {
-      error('Backup fallito:', e);
+      error('Backup failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -48,22 +48,22 @@ const PvuStorage = (() => {
       const key = 'data_' + username;
       const actual = localStorage.getItem(key);
       if (actual !== expectedValue) {
-        warn('MISMATCH post-write! Prendo rollback da backup:', backupKey);
+        warn('MISMATCH after write! Taking rollback from backup:', backupKey);
         if (backupKey) {
           const backupData = localStorage.getItem(backupKey);
           if (backupData) {
             localStorage.setItem(key, backupData);
-            log('Rollback completato da:', backupKey);
+            log('Rollback completed from:', backupKey);
           } else {
-            error('Backup non trovato:', backupKey);
+            error('Backup not found:', backupKey);
           }
         }
         return { ok: false, mismatch: true };
       }
-      log('Validazione post-write OK');
+      log('Post-write validation OK');
       return { ok: true };
     } catch (e) {
-      error('Validazione fallita:', e);
+      error('Validation failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -99,7 +99,7 @@ const PvuStorage = (() => {
 
       return { ok: true };
     } catch (e) {
-      error('writeSave fallito:', e);
+      error('writeSave failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -116,7 +116,7 @@ const PvuStorage = (() => {
       if (!raw) return null;
       return JSON.parse(raw);
     } catch (e) {
-      error('readSave fallito:', e);
+      error('readSave failed:', e);
       return null;
     }
   }
@@ -284,7 +284,7 @@ const PvuStorage = (() => {
           const username = key.substring(5);
           const backup = createBackup(username);
           if (!backup.ok) {
-            warn('Backup fallito durante sanitize, chiave saltata:', key, backup.error);
+            warn('Backup failed during sanitize, key skipped:', key, backup.error);
             continue;
           }
 
@@ -292,13 +292,13 @@ const PvuStorage = (() => {
             localStorage.setItem(key, jsonStr);
             const validation = validatePostWrite(username, jsonStr, backup.key);
             if (!validation.ok) {
-              error('Validazione sanitize fallita per', key, '— rollback applicato');
+              error('Sanitize validation failed for', key, '— rollback applied');
               continue;
             }
             fixed++;
-            log('Sanitizzato', key, '(campi numerici corretti)' + (backup.key ? ' | backup: ' + backup.key : ''));
+            log('Sanitized', key, '(numeric fields corrected)' + (backup.key ? ' | backup: ' + backup.key : ''));
           } catch (e) {
-            error('Write sanitize fallito per', key, e);
+            error('Sanitize write failed for', key, e);
             // rollback manuale se validatePostWrite non ha potuto agire
             try {
               const bk = localStorage.getItem(backup.key);
@@ -309,11 +309,11 @@ const PvuStorage = (() => {
       }
 
       if (fixed > 0) {
-        log('Sanitizzazione completata:', fixed, 'chiavi corrette');
+        log('Sanitization completed:', fixed, 'keys corrected');
       }
       return { ok: true, fixed: fixed };
     } catch (e) {
-      error('sanitizeSavedData fallito:', e);
+      error('sanitizeSavedData failed:', e);
       return { ok: false, fixed: 0, error: e.message || String(e) };
     }
   }

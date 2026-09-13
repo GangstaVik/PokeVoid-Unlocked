@@ -124,7 +124,7 @@ const PvuRollController = (() => {
         }
         if (window.__pvu._rollOptionsNativeSrc) {
           const src = window.__pvu._rollOptionsNativeSrc;
-          log('Native getModifierTypeOptions sorgente catturata:', src.slice(0, 240) + ' ... ' + src.slice(-160));
+          log('Native getModifierTypeOptions source captured:', src.slice(0, 240) + ' ... ' + src.slice(-160));
         }
       }
 
@@ -148,7 +148,7 @@ const PvuRollController = (() => {
               poolLength = probe.length;
             }
           } catch (e) {
-            warn('getModifierTypeOptions probe fallita, nessun clamp applicato:', e);
+            warn('getModifierTypeOptions probe failed, no clamp applied:', e);
             poolLength = null;
           }
         }
@@ -157,7 +157,7 @@ const PvuRollController = (() => {
           effectiveCount = requestedCount + state.itemCountExtra;
           if (poolLength !== null && poolLength < requestedCount) {
             effectiveCount = Math.min(effectiveCount, poolLength);
-            log('Clamp T1: pool saturo (sonda ' + poolLength + ' < nominale ' + requestedCount + ') => ' + effectiveCount + ' opzioni');
+            log('Clamp T1: pool saturated (probe ' + poolLength + ' < nominal ' + requestedCount + ') => ' + effectiveCount + ' options');
           }
         }
 
@@ -187,7 +187,7 @@ const PvuRollController = (() => {
       };
       phaseObj._pvu_optionsHooked = true;
       patched = true;
-      log('getModifierTypeOptions patched su phase instance (itemcount + luck pool + clamp T1)');
+      log('getModifierTypeOptions patched on phase instance (itemcount + luck pool + clamp T1)');
     }
 
     // Hook wild luck una volta sola (istanza arena long-lived)
@@ -200,7 +200,7 @@ const PvuRollController = (() => {
       phaseObj[PVU_PATCHED] = true;
       state.patchedPhaseCount++;
       state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
-      log('Phase patchata:', state.lastPatchedPhase);
+      log('Patched phase:', state.lastPatchedPhase);
     }
     return patched;
   }
@@ -241,7 +241,7 @@ const PvuRollController = (() => {
       log('arena.randomSpecies hooked (wild luck overridable)');
       return true;
     } catch (e) {
-      warn('hookWildLuck fallito:', e);
+      warn('hookWildLuck failed:', e);
       return false;
     }
   }
@@ -283,7 +283,7 @@ const PvuRollController = (() => {
   function registerPhaseInterceptors() {
     const observer = window.__pvu.phaseObserver;
     if (!observer) {
-      warn('phaseObserver non disponibile');
+      warn('phaseObserver unavailable');
       return;
     }
 
@@ -296,7 +296,7 @@ const PvuRollController = (() => {
       checkHooksApplied();
     });
 
-    log('Phase interceptors registrati');
+    log('Phase interceptors registered');
   }
 
   /**
@@ -308,7 +308,7 @@ const PvuRollController = (() => {
     if (originals.getRerollCost) {
       state.hooksApplied = true;
       state.active = true;
-      log('Hooks applicati con successo (getRerollCost patched)');
+      log('Hooks applied successfully (getRerollCost patched)');
       emitStateChange();
     }
   }

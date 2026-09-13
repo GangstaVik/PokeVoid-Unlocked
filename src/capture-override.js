@@ -129,7 +129,7 @@ const PvuCaptureOverride = (() => {
     if (state.errorCount >= 3 && state.level === 2) {
       state.level = 1;
       state.level2Verified = false;
-      log('Auto-degrade a L1 dopo', state.errorCount, 'errori del wrapper');
+      log('Auto-degrade to L1 after', state.errorCount, 'wrapper errors');
     }
   }
 
@@ -147,7 +147,7 @@ const PvuCaptureOverride = (() => {
 
   function clearCaptureTokens(reason) {
     if (!state.captureTokens.length) return;
-    if (reason) log('Token cattura invalidati (' + reason + ')');
+    if (reason) log('Catch tokens invalidated (' + reason + ')');
     state.captureTokens = [];
   }
 
@@ -187,10 +187,10 @@ const PvuCaptureOverride = (() => {
         }
         if (rival) {
           if (!forceSpecial) {
-            log('Esclusione: rival (scripted)');
+            log('Exclusion: rival (scripted)');
             return true;
           }
-          log('Casi speciali: rival (scripted) superato (forceSpecial ON)');
+          log('Special cases: rival (scripted) passed (forceSpecial ON)');
         }
       }
 
@@ -200,11 +200,11 @@ const PvuCaptureOverride = (() => {
           return p && typeof p.isActive === 'function' && p.isActive(true);
         });
       if (enemies.length > 1) {
-        log('Esclusione: multi-target (' + enemies.length + ' nemici attivi)');
+        log('Exclusion: multi-target (' + enemies.length + ' active enemies)');
         return true;
       }
       if (enemies.length < 1) {
-        log('Esclusione: nessun nemico attivo');
+        log('Exclusion: no active enemy');
         return true;
       }
 
@@ -212,10 +212,10 @@ const PvuCaptureOverride = (() => {
       var arena = scene.arena;
       if (arena && typeof arena.biomeType === 'number' && arena.biomeType === BIOME_END) {
         if (!forceSpecial) {
-          log('Esclusione: biome END');
+          log('Exclusion: END biome');
           return true;
         }
-        log('Casi speciali: biome END superato (forceSpecial ON)');
+        log('Special cases: END biome passed (forceSpecial ON)');
       }
 
       // 4. wave pre-final (C1: isWavePreFinal che solleva ⇒ escluso — a meno
@@ -231,10 +231,10 @@ const PvuCaptureOverride = (() => {
         }
         if (preFinal) {
           if (!forceSpecial) {
-            log('Esclusione: wave pre-final');
+            log('Exclusion: pre-final wave');
             return true;
           }
-          log('Casi speciali: wave pre-final superato (forceSpecial ON)');
+          log('Special cases: pre-final wave passed (forceSpecial ON)');
         }
       }
 
@@ -255,10 +255,10 @@ const PvuCaptureOverride = (() => {
           });
           if (preThousand) {
             if (!forceSpecial) {
-              log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
+              log('Exclusion: legendary/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
               return true;
             }
-            log('Casi speciali: leggendario/OP-form pre-wave-1000 superato (forceSpecial ON)');
+            log('Special cases: legendary/OP-form pre-wave-1000 passed (forceSpecial ON)');
           }
         }
       } catch (e) {
@@ -275,16 +275,16 @@ const PvuCaptureOverride = (() => {
         var seg = target.bossSegmentIndex;
         if (typeof seg !== 'number' || seg >= 1) {
           if (!forceSpecial) {
-            log('Esclusione: boss-major (segmentIndex=' + seg + ')');
+            log('Exclusion: boss-major (segmentIndex=' + seg + ')');
             return true;
           }
-          log('Casi speciali: boss-major superato (forceSpecial ON)');
+          log('Special cases: boss-major passed (forceSpecial ON)');
         }
       }
 
       return false;
     } catch (e) {
-      warn('isExcluded fallito, fail-closed:', e);
+      warn('isExcluded failed, fail-closed:', e);
       return true;
     }
   }
@@ -389,7 +389,7 @@ const PvuCaptureOverride = (() => {
         typeof phaseObj.failCatch !== 'function') {
       if (state.rollOverrideReady === null) {
         state.rollOverrideReady = false;
-        warn('AttemptCapturePhase senza metodi wrappabili: override probabilità NON attivo');
+        warn('AttemptCapturePhase without wrappable methods: probability override NOT active');
       }
       return;
     }
@@ -405,7 +405,7 @@ const PvuCaptureOverride = (() => {
         if (token && token.pokemon) {
           if (armCapture(self, token.pokemon)) {
             removeTokenAt(state.captureTokens.indexOf(token));
-            log('Override probabilità armato: cattura #' + state.injectedCount + ' (randSeedInt → -1)');
+            log('Probability override armed: catch #' + state.injectedCount + ' (randSeedInt → -1)');
           }
         }
       } catch (e) {
@@ -420,7 +420,7 @@ const PvuCaptureOverride = (() => {
       try {
         if (self.__pvuArmed) {
           state.capturedCount++;
-          log('Cattura realizzata (#' + state.capturedCount + ')');
+          log('Catch realized (#' + state.capturedCount + ')');
         }
         disarmCapture(self);
       } catch (e) {
@@ -446,7 +446,7 @@ const PvuCaptureOverride = (() => {
     }
 
     phaseObj.__pvuCaptureWired = true;
-    log('AttemptCapturePhase wrappata (override probabilità attivo)');
+    log('AttemptCapturePhase wrapped (probability override active)');
   }
 
   /**
@@ -569,7 +569,7 @@ const PvuCaptureOverride = (() => {
       // V1.4: override solo bersaglio singolo (ridondante con isExcluded,
       // difesa in profondità contro race condition multi-target)
       if (enemies.length !== 1) {
-        log('forceInject: nemici attivi =', enemies.length, '→ inject solo bersaglio singolo, skip');
+        log('forceInject: active enemies =', enemies.length, '→ injecting single target only, skip');
         return false;
       }
 
@@ -611,7 +611,7 @@ const PvuCaptureOverride = (() => {
         if (typeof scene.money === 'number' && scene.money < cost &&
             moneyOverride && typeof moneyOverride.setMoney === 'function') {
           moneyOverride.setMoney(cost);
-          log('Money pre-granted per trainer snatch:', cost);
+          log('Money pre-granted for trainer snatch:', cost);
         }
       }
 
@@ -626,7 +626,7 @@ const PvuCaptureOverride = (() => {
       }
 
       state.injectedCount++;
-      log('Cattura forzata (#' + state.injectedCount + ') fieldIndex=' + fi +
+      log('Forced catch (#' + state.injectedCount + ') fieldIndex=' + fi +
           ', cmd=' + t + ', target=' + enemies.map(function(e) {
             return e.species ? e.species.speciesId : '?';
           }).join(','));
@@ -680,7 +680,7 @@ const PvuCaptureOverride = (() => {
           if (state.ballCommandId === null) {
             state.ballCommandId = tcCmd;
             state.level2Verified = true; // report only (v1.4, NON è nel gate)
-            log('ID BALL confermato nativamente: ballCommandId =', state.ballCommandId);
+            log('BALL ID natively confirmed: ballCommandId =', state.ballCommandId);
           }
         }
         return true;
@@ -696,7 +696,7 @@ const PvuCaptureOverride = (() => {
       // Esclusioni deterministiche (rival/END/pre-final/multi-target/boss-major)
       if (isExcluded(scene)) {
         state.blockedCount++;
-        log('Azione BALL bloccata dal nativo e DECLINATA per esclusione (#', state.blockedCount, ')');
+        log('BALL action blocked natively and DECLINED due to exclusion (#', state.blockedCount, ')');
         return result;
       }
 
@@ -731,13 +731,13 @@ const PvuCaptureOverride = (() => {
 
     // Anti-riwrap dedicato
     if (proto.handleCommand[CAPTURE_PATCHED]) {
-      log('handleCommand già wrappato (CAPTURE_PATCHED)');
+      log('handleCommand already wrapped (CAPTURE_PATCHED)');
       state.hooksApplied = true;
       state.commandProto = proto;
       return;
     }
 
-    log('CommandPhase scoperto via discovery interceptor');
+    log('CommandPhase found via discovery interceptor');
     installWrapper(proto);
   }
 
@@ -784,12 +784,12 @@ const PvuCaptureOverride = (() => {
 
     var helpers = window.__pvu.helpers;
     if (!helpers || typeof helpers.hookPrototype !== 'function') {
-      warn('helpers non disponibile');
+      warn('helpers unavailable');
       return false;
     }
 
     if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
-      log('handleCommand già wrappato (installWrapper)');
+      log('handleCommand already wrapped (installWrapper)');
       state.hooksApplied = true;
       return true;
     }
@@ -803,7 +803,7 @@ const PvuCaptureOverride = (() => {
     } catch (e) { /* proprietary attrs su function: safe in pratica */ }
 
     state.hooksApplied = true;
-    log('handleCommand wrapper installato su CommandPhase.prototype');
+    log('handleCommand wrapper installed on CommandPhase.prototype');
     return true;
   }
 
@@ -828,7 +828,7 @@ const PvuCaptureOverride = (() => {
         typeof phaseObserver.onPhasePush === 'function') {
       phaseObserver.onPhasePush(discoveryInterceptor);
       state._discoveryRegistered = true;
-      log('Discovery interceptor registrato');
+      log('Discovery interceptor registered');
     }
 
     // V1.4: interceptor tentativi cattura (AttemptCapturePhase, push+unshift)
@@ -837,7 +837,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(attemptInterceptor);
       phaseObserver.onPhaseUnshift(attemptInterceptor);
       state._attemptRegistered = true;
-      log('Attempt-capture interceptor registrato');
+      log('Attempt-capture interceptor registered');
     }
 
     // V1.4: interceptor confine di turno (invalida token pendenti)
@@ -846,7 +846,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(turnBoundaryInterceptor);
       phaseObserver.onPhaseUnshift(turnBoundaryInterceptor);
       state._turnBoundaryRegistered = true;
-      log('Turn-boundary interceptor registrato');
+      log('Turn-boundary interceptor registered');
     }
 
     // V1.4: L1 backstop live (99 balls a ogni CommandPhase push)
@@ -855,7 +855,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(l1BackstopInterceptor);
       phaseObserver.onPhaseUnshift(l1BackstopInterceptor);
       state._l1BackstopRegistered = true;
-      log('L1 backstop interceptor registrato');
+      log('L1 backstop interceptor registered');
     }
 
     // Tentativo diretto (senza attendere il prossimo phase push)
@@ -906,7 +906,7 @@ const PvuCaptureOverride = (() => {
       storage.setSettings({ forceSpecial: state.forceSpecial });
     }
 
-    log('Casi speciali (forceSpecial): ' + (state.forceSpecial ? 'ON' : 'OFF'));
+    log('Special cases (forceSpecial): ' + (state.forceSpecial ? 'ON' : 'OFF'));
     return state.forceSpecial;
   }
 
@@ -924,7 +924,7 @@ const PvuCaptureOverride = (() => {
       if (typeof settings.forceSpecial === 'boolean') state.forceSpecial = settings.forceSpecial;
       return state.enabled;
     } catch (e) {
-      warn('loadPersistedState fallito:', e);
+      warn('loadPersistedState failed:', e);
       return false;
     }
   }
@@ -938,7 +938,7 @@ const PvuCaptureOverride = (() => {
 
     loadPersistedState();
     if (state.enabled) {
-      log('Catch Any attivo da settings precedente');
+      log('Catch Any active from previous settings');
     }
 
     applyHooks();
@@ -976,11 +976,11 @@ const PvuCaptureOverride = (() => {
         var proto = state.commandProto;
         if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
           proto.handleCommand = originalHandleCommand;
-          log('handleCommand ripristinato');
+          log('handleCommand restored');
         }
       }
     } catch (e) {
-      warn('destroy fallito:', e);
+      warn('destroy failed:', e);
     }
     clearCaptureTokens('destroy');
     originalHandleCommand = null;

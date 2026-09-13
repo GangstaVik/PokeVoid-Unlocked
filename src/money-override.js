@@ -32,12 +32,12 @@ const PvuMoneyOverride = (() => {
       const scene = bridge.getBattleScene();
 
       if (!scene) {
-        return { ok: false, error: 'Battle scene non disponibile' };
+        return { ok: false, error: 'Battle scene unavailable' };
       }
 
       // scene.money (run corrente)
       scene.money = amount;
-      log('scene.money impostato a', amount);
+      log('scene.money set to', amount);
 
       // gameData.permaMoney (persistente)
       const gameData = bridge.findGameData();
@@ -45,12 +45,12 @@ const PvuMoneyOverride = (() => {
         // Difensivo: se permaMoney è già bigint/stringa "123n" (save corrotto in memoria),
         // normalizzalo prima che il gioco lo usi (Math.round/NaN-freeze).
         if (typeof gameData.permaMoney === 'bigint') {
-          warn('permaMoney era BigInt (' + String(gameData.permaMoney) + ') → normalizzato a Number');
+          warn('permaMoney was BigInt (' + String(gameData.permaMoney) + ') → normalized to Number');
           gameData.permaMoney = Number(gameData.permaMoney);
         } else if (typeof gameData.permaMoney === 'string') {
           const m = /^(\d+)n?$/.exec(gameData.permaMoney.trim());
           if (m) {
-            warn('permaMoney era stringa ("' + gameData.permaMoney + '") → normalizzato a Number');
+            warn('permaMoney was string ("' + gameData.permaMoney + '") → normalized to Number');
             gameData.permaMoney = Number(m[1]);
           }
         }
@@ -58,7 +58,7 @@ const PvuMoneyOverride = (() => {
         // FIX v1.2.1: era BigInt(amount) — corrompeva permaMoney (freeze Ω + load error).
         // Il gioco tratta permaMoney come number: assegniamo sempre Number.
         gameData.permaMoney = Number(amount);
-        log('permaMoney impostato a', gameData.permaMoney);
+        log('permaMoney set to', gameData.permaMoney);
 
         // Refresh UI — cerca updateMoneyText o updateGameInfo
         try {
@@ -66,7 +66,7 @@ const PvuMoneyOverride = (() => {
             scene.updateMoneyText();
           }
         } catch(e) {
-          warn('updateMoneyText non disponibile:', e);
+          warn('updateMoneyText unavailable:', e);
         }
 
         try {
@@ -82,11 +82,11 @@ const PvuMoneyOverride = (() => {
 
         return { ok: true, sceneMoney: amount, permaMoney: amount };
       } else {
-        warn('gameData non disponibile — money solo in run');
-        return { ok: true, sceneMoney: amount, error: 'gameData non trovato, solo run money aggiornato' };
+        warn('gameData unavailable — money run-only');
+        return { ok: true, sceneMoney: amount, error: 'gameData not found, run money updated only' };
       }
     } catch (e) {
-      warn('setMoney fallito:', e);
+      warn('setMoney failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -122,10 +122,10 @@ const PvuMoneyOverride = (() => {
     try {
       if (gameData && typeof gameData.saveSystem === 'function') {
         gameData.saveSystem();
-        log('saveSystem() invocato');
+        log('saveSystem() invoked');
       }
     } catch(e) {
-      warn('saveSystem fallito:', e);
+      warn('saveSystem failed:', e);
     }
   }
 
@@ -135,7 +135,7 @@ const PvuMoneyOverride = (() => {
   function applyFromInput(inputElement) {
     if (!inputElement) return { ok: false, error: 'Input element not found' };
     const val = parseInt(inputElement.value, 10);
-    if (isNaN(val)) return { ok: false, error: 'Valore non valido' };
+    if (isNaN(val)) return { ok: false, error: 'Invalid value' };
     return setMoney(val);
   }
 

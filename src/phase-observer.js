@@ -76,13 +76,13 @@ const PvuPhaseObserver = (() => {
 
     const scene = bridge.getBattleScene();
     if (!scene) {
-      log('battle scene non ancora disponibile per phase hook');
+      log('battle scene not yet available for phase hook');
       return false;
     }
 
     const proto = Object.getPrototypeOf(scene);
     if (!proto) {
-      log('proto non trovato');
+      log('proto not found');
       return false;
     }
 
@@ -157,7 +157,7 @@ const PvuPhaseObserver = (() => {
     bridge.setCurrentPhase(normalized);
 
     if (normalized !== oldPhase) {
-      log('Fase cambiata:', oldPhase, '->', normalized);
+      log('Phase changed:', oldPhase, '->', normalized);
       emitPhaseChange(normalized, oldPhase);
     }
   }
@@ -201,7 +201,7 @@ const PvuPhaseObserver = (() => {
       bridge.setCurrentPhase(phase);
 
       if (phase !== oldPhase) {
-        log('[poll] Fase cambiata:', oldPhase, '->', phase);
+        log('[poll] Phase changed:', oldPhase, '->', phase);
         emitPhaseChange(phase, oldPhase);
       }
     }, 500);
@@ -227,7 +227,7 @@ const PvuPhaseObserver = (() => {
       const hooked = hookPhaseMethods();
       if (hooked) {
         clearInterval(hookInterval);
-        log('Phase hooks applicati');
+        log('Phase hooks applied');
         return;
       }
       // FIX 4: stop anche se window.gameInfo esiste OPPURE la battle scene è
@@ -236,12 +236,12 @@ const PvuPhaseObserver = (() => {
       const bridge = window.__pvu.bridge;
       if (window.gameInfo || (bridge && bridge.getBattleScene())) {
         clearInterval(hookInterval);
-        log('Phase hooks: gameInfo/battle scene disponibile, stop retry');
+        log('Phase hooks: gameInfo/battle scene available, stopping retry');
         return;
       }
       if (hookAttempts > 30) {
         clearInterval(hookInterval);
-        log('Phase hooks: timeout, uso solo polling');
+        log('Phase hooks: timeout, polling only');
       }
     }, 1000);
 

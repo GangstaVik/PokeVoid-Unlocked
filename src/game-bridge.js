@@ -24,13 +24,13 @@ const PvuGameBridge = (() => {
     try {
       const Phaser = window.Phaser;
       if (!Phaser || !Phaser.Game) {
-        log('Phaser non disponibile, retry più tardi');
+        log('Phaser unavailable, retrying later');
         return false;
       }
 
       // FIX 3: guardia anti-doppio-hook — idempotente, safe da ri-chiamare
       if (Phaser.Game[Symbol.for('pvuPatched')]) {
-        log('hookPhaserGame già applicato, skip');
+        log('hookPhaserGame already applied, skipping');
         return true;
       }
 
@@ -40,7 +40,7 @@ const PvuGameBridge = (() => {
         const instance = OriginalGame.apply(this, arguments) || this;
         STATE.gameInstance = instance;
         window.__pvu_game = instance;
-        log('Phaser.Game catturato via constructor hook');
+        log('Phaser.Game captured via constructor hook');
         return instance;
       };
 
@@ -51,10 +51,10 @@ const PvuGameBridge = (() => {
       // FIX 3: marca come patchato — next call ritorna true senza re-wrap
       Phaser.Game[Symbol.for('pvuPatched')] = true;
 
-      log('Hook Phaser.Game applicato (attende istanza...)');
+      log('Phaser.Game hook applied (waiting for instance...)');
       return true;
     } catch (e) {
-      warn('hookPhaserGame fallito:', e);
+      warn('hookPhaserGame failed:', e);
       return false;
     }
   }
@@ -68,7 +68,7 @@ const PvuGameBridge = (() => {
       const scripts = document.querySelectorAll('script[src]');
       for (const s of scripts) {
         if (s.src && s.src.indexOf('assets/index') !== -1) {
-          log('Bundle script trovato:', s.src);
+          log('Bundle script found:', s.src);
         }
       }
       const allScripts = document.querySelectorAll('script:not([src])');
@@ -80,12 +80,12 @@ const PvuGameBridge = (() => {
       }
       if (combined.length > 10000) {
         window.__pvu._bundleSource = combined;
-        log('Bundle inline catturato:', combined.length, 'chars');
+        log('Inline bundle captured:', combined.length, 'chars');
         return true;
       }
       return false;
     } catch (e) {
-      warn('captureBundleSource fallito:', e);
+      warn('captureBundleSource failed:', e);
       return false;
     }
   }
@@ -163,7 +163,7 @@ const PvuGameBridge = (() => {
         if (entry && entry.parent && entry.parent.game) {
           STATE.gameInstance = entry.parent.game;
           window.__pvu_game = entry.parent.game;
-          log('Game recuperato via CanvasPool (getGame self-heal)');
+          log('Game recovered via CanvasPool (getGame self-heal)');
           return STATE.gameInstance;
         }
       }
@@ -213,12 +213,12 @@ const PvuGameBridge = (() => {
       const v = gameData.permaMoney;
       if (typeof v === 'bigint') {
         gameData.permaMoney = Number(v);
-        warn('permaMoney era BigInt → normalizzato a Number (safety net runtime)');
+        warn('permaMoney was BigInt → normalized to Number (runtime safety net)');
       } else if (typeof v === 'string') {
         const m = /^(\d+)n?$/.exec(v.trim());
         if (m) {
           gameData.permaMoney = Number(m[1]);
-          warn('permaMoney era stringa ("' + v + '") → normalizzato a Number (safety net runtime)');
+          warn('permaMoney was string ("' + v + '") → normalized to Number (runtime safety net)');
         }
       }
       // Marca per evitare re-check inutili nello stesso oggetto (poll 500ms).
@@ -228,7 +228,7 @@ const PvuGameBridge = (() => {
         Object.defineProperty(gameData, '__pvu_sanitized', { value: true, writable: false, configurable: true, enumerable: false });
       } catch (e) { /* ignore */ }
     } catch (e) {
-      warn('sanitizeGameDataRuntime fallito:', e);
+      warn('sanitizeGameDataRuntime failed:', e);
     }
     return gameData;
   }
@@ -264,7 +264,7 @@ const PvuGameBridge = (() => {
         if (candidate && candidate.game) {
           STATE.battleScene = candidate;
           window.__pvu_battleScene = candidate;
-          log('Battle scene catturato da phase instance (' +
+          log('Battle scene captured from phase instance (' +
               (phaseObj.constructor ? phaseObj.constructor.name : '?') + ')');
         }
       }
@@ -311,7 +311,7 @@ const PvuGameBridge = (() => {
       if (game) {
         const gd = getGameData();
         if (gd) {
-          log('gameData trovato via game instance');
+          log('gameData found via game instance');
           clearInterval(pollInterval);
           return;
         }
@@ -319,17 +319,17 @@ const PvuGameBridge = (() => {
 
       const scene = getBattleScene();
       if (scene) {
-        log('battle scene trovato via CanvasPool');
+        log('battle scene found via CanvasPool');
         clearInterval(pollInterval);
         return;
       }
 
       if (pollGameInfo()) {
-        log('gameInfo disponibile');
+        log('gameInfo available');
       }
 
       if (pollCount > 120) {
-        log('timeout polling — il gioco non è partito?');
+        log('polling timeout — did the game start?');
         clearInterval(pollInterval);
       }
     }, 500);

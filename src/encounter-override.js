@@ -113,12 +113,12 @@ const PvuEncounterOverride = (() => {
             !proto[ENCOUNTER_PATCHED]) {
           state.pokemonProto = proto;
           state.pokemonClass = (c.constructor.name) || 'unknown';
-          log('Pokemon prototype scoperto:', state.pokemonClass);
+          log('Pokemon prototype discovered:', state.pokemonClass);
           return proto;
         }
       }
     } catch (e) {
-      warn('discoverPokemonProto fallito:', e);
+      warn('discoverPokemonProto failed:', e);
     }
     return null;
   }
@@ -187,8 +187,8 @@ const PvuEncounterOverride = (() => {
     } catch (e) { /* name è solo per il log */ }
     if (!warnedMissingVariantAssets.has(name)) {
       warnedMissingVariantAssets.add(name);
-      warn('Asset variante shiny non disponibili per', name,
-        '— variant saltata, sparkle e texture shiny base mantenute');
+      warn('Shiny variant assets unavailable for', name,
+        '— variant skipped, keeping base sparkle and shiny texture');
     }
   }
 
@@ -267,13 +267,13 @@ const PvuEncounterOverride = (() => {
 
       const proto = state.pokemonProto || discoverPokemonProto();
       if (!proto) {
-        log('Pokemon prototype non ancora disponibile (retry)');
+        log('Pokemon prototype not yet available (retry)');
         return false;
       }
 
       const helpers = window.__pvu.helpers;
       if (!helpers || typeof helpers.hookPrototype !== 'function') {
-        warn('helpers non disponibile, impossibile hookare');
+        warn('helpers unavailable, cannot hook');
         return false;
       }
 
@@ -282,7 +282,7 @@ const PvuEncounterOverride = (() => {
         originalTrySetShiny = proto.trySetShiny.__pvuOriginal || proto.trySetShiny;
         state.hooksApplied = true;
         state.active = true;
-        log('trySetShiny già hookato, skip');
+        log('trySetShiny already hooked, skipping');
         return true;
       }
 
@@ -301,10 +301,10 @@ const PvuEncounterOverride = (() => {
 
       state.hooksApplied = true;
       state.active = true;
-      log('trySetShiny hookato su Pokemon.prototype (class: ' + state.pokemonClass + ')');
+      log('trySetShiny hooked on Pokemon.prototype (class: ' + state.pokemonClass + ')');
       return true;
     } catch (e) {
-      warn('hookTrySetShiny fallito:', e);
+      warn('hookTrySetShiny failed:', e);
       return false;
     }
   }
@@ -327,7 +327,7 @@ const PvuEncounterOverride = (() => {
       // discoverPokemonProto è chiamato ad ogni tentativo.
       if (attempts > 30) {
         clearInterval(timer);
-        warn('Timeout: Pokemon prototype non trovato dopo 30s');
+        warn('Timeout: Pokemon prototype not found after 30s');
       }
     }, 1000);
 
@@ -363,7 +363,7 @@ const PvuEncounterOverride = (() => {
       state.shiny = !!settings.shiny;
       return state.shiny;
     } catch (e) {
-      warn('loadPersistedState fallito:', e);
+      warn('loadPersistedState failed:', e);
       return false;
     }
   }
@@ -376,7 +376,7 @@ const PvuEncounterOverride = (() => {
 
     loadPersistedState();
     if (state.shiny) {
-      log('Always Shiny attivo da settings precedente');
+      log('Always Shiny active from previous settings');
     }
 
     applyHooks();
@@ -392,11 +392,11 @@ const PvuEncounterOverride = (() => {
         const wrapped = proto.trySetShiny;
         if (wrapped && wrapped[ENCOUNTER_PATCHED]) {
           proto.trySetShiny = originalTrySetShiny;
-          log('trySetShiny ripristinato');
+          log('trySetShiny restored');
         }
       }
     } catch (e) {
-      warn('destroy fallito:', e);
+      warn('destroy failed:', e);
     }
     originalTrySetShiny = null;
     state.hooksApplied = false;

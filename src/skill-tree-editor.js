@@ -66,7 +66,7 @@ const PvuSkillTreeEditor = (() => {
       const key = champId + '|' + source;
       if (key !== lastChampLogKey) {
         lastChampLogKey = key;
-        log('Champion risolto:', champId, '(source:', source + ')');
+        log('Champion resolved:', champId, '(source:', source + ')');
       }
       return champId;
     }
@@ -76,7 +76,7 @@ const PvuSkillTreeEditor = (() => {
     const key = fallback + '|gender-default';
     if (key !== lastChampLogKey) {
       lastChampLogKey = key;
-      log('Champion risolto (gender default):', fallback, '(source: gender-default)');
+      log('Champion resolved (gender default):', fallback, '(source: gender-default)');
     }
     return fallback;
   }
@@ -97,11 +97,11 @@ const PvuSkillTreeEditor = (() => {
   function setSkillPoints(amount) {
     const ast = getActiveSkillTree();
     if (!ast) {
-      warn('activeSkillTree non disponibile (nessuna run attiva?)');
+      warn('activeSkillTree unavailable (no active run?)');
       return false;
     }
     ast.skillPoints = Math.max(0, Math.floor(amount));
-    log('activeSkillTree.skillPoints impostato a', ast.skillPoints);
+    log('activeSkillTree.skillPoints set to', ast.skillPoints);
     return true;
   }
 
@@ -172,10 +172,10 @@ const PvuSkillTreeEditor = (() => {
    */
   function unlockSkill(skillId, unlockableCategory) {
     const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return { ok: false, error: 'gameData non disponibile' };
+    if (!gd) return { ok: false, error: 'gameData unavailable' };
 
     const champId = resolveActiveChampionId();
-    if (!champId) return { ok: false, error: 'Nessun champion attivo nella run' };
+    if (!champId) return { ok: false, error: 'No active champion in run' };
 
     let champData = gd.championData && gd.championData[champId];
     if (!champData) {
@@ -194,7 +194,7 @@ const PvuSkillTreeEditor = (() => {
       if (idx !== -1) {
         lockedArr.splice(idx, 1);
         champData.lockedSkills = lockedArr; // riscrivi normalizzato
-        log('Skill', skillId, 'rimossa da lockedSkills');
+        log('Skill', skillId, 'removed from lockedSkills');
       }
     }
 
@@ -204,7 +204,7 @@ const PvuSkillTreeEditor = (() => {
       champData[unlockedKey] = champData[unlockedKey] || [];
       if (champData[unlockedKey].indexOf(skillId) === -1) {
         champData[unlockedKey].push(skillId);
-        log('Skill', skillId, 'aggiunta a', unlockedKey);
+        log('Skill', skillId, 'added to', unlockedKey);
       }
     }
 
@@ -212,10 +212,10 @@ const PvuSkillTreeEditor = (() => {
     try {
       if (typeof gd.saveSystem === 'function') {
         gd.saveSystem();
-        log('saveSystem() invocato dopo unlock');
+        log('saveSystem() invoked after unlock');
       }
     } catch(e) {
-      warn('saveSystem fallito:', e);
+      warn('saveSystem failed:', e);
     }
 
     return { ok: true };
