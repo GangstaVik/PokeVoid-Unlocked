@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.6.0] - 2026-09-12
+
+### Added
+- Status strip (version, game state, active overrides count) at the top of the panel
+- About modal with version, shortcut, feature list, and hotkey rebinding
+- Rebindable panel toggle hotkey (default Ctrl+Shift+P)
+- i18n module with English UI dictionary
+
+### Changed
+- Full English UI: all screens, status lines and console logs (no more Italian strings)
+- Tokenized design system (CSS custom properties, unified colors/typography/spacing)
+- Text-only tabs and PV-monogram floating action button (no emoji in the UI)
+- Voucher status lines drop the ✓ symbol; skill-screen danger color synced to the design token
+
+### Docs
+- Updated README structure, hotkey reference, and badge
+- Updated docs/design.md §7 (visual design) and docs/COMPATIBILITY.md
+
+Compare: [v1.5.1...v1.6.0](https://github.com/GangstaVik/PokeVoid-Unlocked/compare/v1.5.1...v1.6.0)
+
 ## [1.5.1] - 2026-09-12
 
 ### Fixed

@@ -21,5 +21,6 @@ PokeVoid-Unlocked is tested against the following environment.
 
 ### Release compatibility
 
+- **v1.6.0**: UI revamp — all-English UI and console, tokenized design system, rebindable toggle hotkey (default Ctrl+Shift+P), status strip and About modal. No game-hook changes: hooks/API surface identical to v1.5.x, same bundle v3.1.8.
 - **v1.5.1**: Rival/global capture regression fixed — force-inject gate accepts the object-shaped `turnCommands` (every battle type); Essence editor uses the canonical 24-entry native id map (SMITTY/GLITCH/GEN_ONE applied to the correct type, no id=index fallback) with single debounced live input UX (UNKNOWN not selectable).
 - **v1.5.0**: Catch Special toggle (default OFF) lifts the five scripted/final/legendary/boss exclusions; requires the v1.4 hook set. ETERNATUS/VOID high-HP captures work only when the boss-major lift is accepted (opt-in, default OFF); force-inject deliberately overrides the native VOID_BALL hpRatio gate. Species with isObtainable() false can still fail the native failCatch before the roll despite the force-inject.

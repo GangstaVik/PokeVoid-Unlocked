@@ -86,10 +86,14 @@ Regola: mai scrivere durante animazioni (solo fasi statiche). Protocollo: 1) bac
 - Fallback: poll `window.gameInfo.modeChain` (500ms, 100ms in transizione).
 - Mapping: Battle→Money ✓; ModifierSelect→Money+Roll ✓; Shop→Money ✓; Menu/Skill→Money+Skill ✓; Title/Loading→nessuno.
 
-## 7. UI Components
-- **Floating button**: fixed, z-index 99999, bottom-right (spazio ~134px), 40×40, icona Lucide (text/emoji inline, niente dipendenze), hover scale.
-- **Panel**: destra, width 380px, pointer-events:none container / auto figli, scuro semi-opaco blur, tab: Money / Roll / Skill.
-- Stili: font gioco 'emerald' (titoli) + 'pkmnems' (body) con fallback system-ui. Palette #1a1a2e/#e94560/#eee.
+## 7. UI Components (v1.6.0)
+- **Floating button**: fixed, z-index 99999, bottom-right (spazio ~134px), 40×40, monogramma **PV** (13px, weight 800, colore #4fa3ff; niente emoji, niente dipendenze), hover scale.
+- **Panel**: destra, width 380px, pointer-events:none container / auto figli, scuro semi-opaco blur; **6 tab testuali** (Battle / Roll / Skill / Voucher / Essence / Money), niente emoji nei tab; close button `×` (U+00D7); stato conveyed via classi `.ok`/`.warn`/`.err`.
+- **Status strip**: 3 chip sotto l'header — versione (`pvu.config.VERSION`), stato del gioco (`window.gameInfo`/bridge → waiting/running), conteggio override attivi (try/catch su `.getState()` di encounterOverride / rollController / captureOverride); refresh via `setInterval` 2s, cleanup in `destroy()`.
+- **About modal**: backdrop + card centrata; righe per versione / scorciatoia (bottone **Rebind** → `hotkey.startCapture`, aggiorna live la hint) / elenco funzionalità; chiusura con bottone Close o click sul backdrop.
+- **Hotkey**: default `Ctrl+Shift+P`, rebindabile; combo persistita come JSON (`data_pvu_hotkey`); accettata solo con ≥1 di Ctrl/Alt/Meta, non tasto modificatore nudo, tasto singolo stampabile; eventi da `input`/`select`/`textarea`/contentEditable ignorati; capture con timeout 5s.
+- **Stili (design token)**: CSS custom properties — bg `#0e1014`, surface `#171a21`, border `#2a2f3a`, text `#e6e9ef`, secondary `#9aa4b2`, accent `#4fa3ff`, success `#3ddc97`, warning `#ffb454`, danger `#ff5c5c`; radii 8/6/4; spacing 4/8/12/16/24; type scale 11/13/15/17px; transition 0.18s; font stack `system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`.
+- **Lingua**: UI e console in **inglese**, senza emoji né simboli (✓/✗/⚠️/✅/⚡ rimossi; restano `—` e `→`); stringhe UI via `t()` (`PvuI18n`, `DICT.en` con fallback key), log console come literal inglesi (mai `t()`). I commenti nel codice restano italiani (decisione permanente).
 
 ## 8. Valori Runtime & Save
 - runtime: scene.money (init 1000), gameData.permaMoney (bigint string), gameData.skillPoints, gameData.selectedChampionId, window.gameInfo (snapshot).
