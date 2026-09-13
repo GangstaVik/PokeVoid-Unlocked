@@ -1,5 +1,6 @@
 // src/ui/panel.js — Pannello principale con tab Money / Roll / Skill / Voucher / Battle
 const PvuPanel = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuPanel]';
   let containerEl = null;
   let panelEl = null;
@@ -8,6 +9,7 @@ const PvuPanel = (() => {
   // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
   // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
   let moneyTimer = null;
+  let stripTimer = null;
   let activeScreen = null;
 
   function log() {
@@ -38,26 +40,27 @@ const PvuPanel = (() => {
     const header = document.createElement('div');
     header.className = 'pvu-header';
     const title = document.createElement('span');
-    title.textContent = '⚡ PokeVoid-Unlocked';
+    title.textContent = t('panel.title');
     header.appendChild(title);
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'pvu-close';
-    closeBtn.textContent = '✕';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', toggle);
     header.appendChild(closeBtn);
     panelEl.appendChild(header);
+    panelEl.appendChild(buildStrip());
 
     // Tabs
     const tabs = document.createElement('div');
     tabs.className = 'pvu-tabs';
 
-    const tabMoney = createTab('💰 Money', 'money');
-    const tabRoll = createTab('🎲 Roll', 'roll');
-    const tabSkill = createTab('🌳 Skill', 'skill');
-    const tabVoucher = createTab('🎟️ Voucher', 'voucher');
-    const tabBattle = createTab('🎯 Battle', 'battle');
-    const tabEssence = createTab('✨ Essenze', 'essence');
+    const tabMoney = createTab(t('tab.money'), 'money');
+    const tabRoll = createTab(t('tab.roll'), 'roll');
+    const tabSkill = createTab(t('tab.skill'), 'skill');
+    const tabVoucher = createTab(t('tab.voucher'), 'voucher');
+    const tabBattle = createTab(t('tab.battle'), 'battle');
+    const tabEssence = createTab(t('tab.essence'), 'essence');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
@@ -72,6 +75,8 @@ const PvuPanel = (() => {
     tabContent.className = 'pvu-tab-content';
     tabContent.id = 'pvu-tab-content';
     panelEl.appendChild(tabContent);
+    panelEl.appendChild(buildFooter());
+    updateFooterHint();
 
     containerEl.appendChild(panelEl);
 
@@ -91,7 +96,10 @@ const PvuPanel = (() => {
     // Render tab iniziale
     renderTabContent(activeTab);
 
-    log('Panel creato');
+    refreshStrip();
+    stripTimer = setInterval(refreshStrip, 2000);
+
+    log('Panel created');
     return containerEl;
   }
 
@@ -104,6 +112,181 @@ const PvuPanel = (() => {
       switchTab(tabId);
     });
     return tab;
+  }
+
+  function buildStrip() {
+    const strip = document.createElement('div');
+    strip.className = 'pvu-strip';
+    strip.id = 'pvu-strip';
+    strip.appendChild(makeChip('pvu-strip-version', 'v' + window.__pvu.config.VERSION, ''));
+    strip.appendChild(makeChip('pvu-strip-game', '', ''));
+    strip.appendChild(makeChip('pvu-strip-overrides', '', ''));
+    return strip;
+  }
+
+  function makeChip(id, label, state) {
+    const chip = document.createElement('span');
+    chip.className = 'pvu-chip' + (state ? ' ' + state : '');
+    chip.id = id;
+    chip.textContent = label;
+    return chip;
+  }
+
+  function refreshStrip() {
+    const gameChip = document.getElementById('pvu-strip-game');
+    const ovrChip = document.getElementById('pvu-strip-overrides');
+    if (!gameChip || !ovrChip) return;
+    const hasBridge = !!(window.gameInfo && window.gameInfo.game);
+    if (hasBridge) {
+      gameChip.textContent = t('strip.gameRunning');
+      gameChip.className = 'pvu-chip ok';
+    } else {
+      gameChip.textContent = t('strip.gameWaiting');
+      gameChip.className = 'pvu-chip warn';
+    }
+    let count = 0;
+    try {
+      if (window.__pvu.encounterOverride && typeof window.__pvu.encounterOverride.getState === 'function') {
+        const s = window.__pvu.encounterOverride.getState();
+        if (s && s.shiny) count++;
+      }
+      if (window.__pvu.rollController && typeof window.__pvu.rollController.getState === 'function') {
+        const s = window.__pvu.rollController.getState();
+        if (s && (s.costOverride || s.luckLock || (s.itemCountExtra > 0))) count++;
+      }
+      if (window.__pvu.captureOverride && typeof window.__pvu.captureOverride.getState === 'function') {
+        const s = window.__pvu.captureOverride.getState();
+        if (s && (s.enabled || s.forceSpecial)) count++;
+      }
+    } catch (e) {
+      /* strip read failures are cosmetic; ignore */
+    }
+    ovrChip.textContent = t('strip.overrides') + ': ' + count;
+    ovrChip.className = count > 0 ? 'pvu-chip ok' : 'pvu-chip';
+  }
+
+  function buildFooter() {
+    const footer = document.createElement('div');
+    footer.className = 'pvu-footer';
+    const hint = document.createElement('span');
+    hint.className = 'pvu-footer-hint';
+    hint.id = 'pvu-footer-hint';
+    const aboutBtn = document.createElement('button');
+    aboutBtn.className = 'pvu-btn';
+    aboutBtn.textContent = t('about.title');
+    aboutBtn.addEventListener('click', openAbout);
+    footer.appendChild(hint);
+    footer.appendChild(aboutBtn);
+    return footer;
+  }
+
+  function updateFooterHint() {
+    const hint = document.getElementById('pvu-footer-hint');
+    if (!hint) return;
+    const combo = window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function'
+      ? window.__pvu.hotkey.getComboLabel()
+      : 'Ctrl+Shift+P';
+    hint.textContent = combo + ' ' + t('about.hintToggle') + '.';
+  }
+
+  function openAbout() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'pvu-modal-backdrop';
+    const card = document.createElement('div');
+    card.className = 'pvu-modal-card';
+    const title = document.createElement('div');
+    title.className = 'pvu-header-title';
+    title.textContent = t('about.title') + ' — ' + t('panel.title');
+    const close = document.createElement('button');
+    close.className = 'pvu-close';
+    close.textContent = '×';
+    close.addEventListener('click', closeAbout);
+    const rows = document.createElement('div');
+    rows.style.display = 'flex';
+    rows.style.flexDirection = 'column';
+    rows.style.gap = '12px';
+    const verRow = document.createElement('div');
+    verRow.className = 'pvu-modal-row';
+    const verLabel = document.createElement('span');
+    verLabel.className = 'pvu-modal-row-label';
+    verLabel.textContent = t('about.version');
+    const verValue = document.createElement('span');
+    verValue.className = 'pvu-modal-row-value';
+    verValue.textContent = 'v' + window.__pvu.config.VERSION;
+    verRow.appendChild(verLabel);
+    verRow.appendChild(verValue);
+    const scRow = document.createElement('div');
+    scRow.className = 'pvu-modal-row';
+    const scLabel = document.createElement('span');
+    scLabel.className = 'pvu-modal-row-label';
+    scLabel.textContent = t('about.shortcut');
+    const scValue = document.createElement('span');
+    scValue.className = 'pvu-modal-row-value';
+    scValue.id = 'pvu-about-combo';
+    scValue.textContent = window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function'
+      ? window.__pvu.hotkey.getComboLabel()
+      : 'Ctrl+Shift+P';
+    const rebind = document.createElement('button');
+    rebind.className = 'pvu-btn';
+    rebind.textContent = t('about.rebind');
+    rebind.addEventListener('click', function () {
+      rebind.textContent = t('about.pressKey') + '...';
+      if (window.__pvu.hotkey && typeof window.__pvu.hotkey.startCapture === 'function') {
+        // API reale: startCapture(cb) con cb(newCombo, oldCombo); null su cancel/timeout.
+        window.__pvu.hotkey.startCapture(function (newCombo) {
+          rebind.textContent = t('about.rebind');
+          if (!newCombo) return;
+          const label = typeof window.__pvu.hotkey.getComboLabel === 'function'
+            ? window.__pvu.hotkey.getComboLabel(newCombo)
+            : 'Ctrl+Shift+P';
+          updateComboLabel(label);
+          updateFooterHint();
+        });
+      }
+    });
+    scRow.appendChild(scLabel);
+    scRow.appendChild(scValue);
+    scRow.appendChild(rebind);
+    const featLabel = document.createElement('div');
+    featLabel.className = 'pvu-modal-row-label';
+    featLabel.textContent = t('about.features');
+    const list = document.createElement('ul');
+    list.className = 'pvu-features';
+    [
+      'Money override (permament, save-backed)',
+      'Roll controller: no-cost, luck lock, item count',
+      'Skill points: unlock skills of the active champion',
+      'Voucher editor (types / values of each owned voucher)',
+      'Battle: always-shiny, catch-any with special-case opt-in',
+      'Type essence editor (per-type values)',
+      'Toggle panel: ' + (window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function' ? window.__pvu.hotkey.getComboLabel() : 'Ctrl+Shift+P')
+    ].forEach(function (text) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
+    card.appendChild(title);
+    card.appendChild(close);
+    card.appendChild(rows);
+    rows.appendChild(verRow);
+    rows.appendChild(scRow);
+    rows.appendChild(featLabel);
+    rows.appendChild(list);
+    backdrop.appendChild(card);
+    backdrop.addEventListener('click', function (e) {
+      if (e.target === backdrop) closeAbout();
+    });
+    document.getElementById('pvu-container').appendChild(backdrop);
+  }
+
+  function closeAbout() {
+    const existing = document.querySelector('.pvu-modal-backdrop');
+    if (existing) existing.remove();
+  }
+
+  function updateComboLabel(newLabel) {
+    const el = document.getElementById('pvu-about-combo');
+    if (el) el.textContent = newLabel || 'Ctrl+Shift+P';
   }
 
   function switchTab(tabId) {
@@ -164,7 +347,7 @@ const PvuPanel = (() => {
 
     const title = document.createElement('div');
     title.className = 'pvu-section-title';
-    title.textContent = 'MONEY OVERRIDE';
+    title.textContent = t('money.title');
     section.appendChild(title);
 
     // Money input
@@ -175,7 +358,7 @@ const PvuPanel = (() => {
     input.type = 'number';
     input.className = 'pvu-input';
     input.id = 'pvu-money-input';
-    input.placeholder = 'Nuovo importo';
+    input.placeholder = t('money.placeholder');
     input.min = '0';
     input.max = String(Number.MAX_SAFE_INTEGER);
     input.value = '0';
@@ -194,12 +377,12 @@ const PvuPanel = (() => {
       const statusEl = parentEl.querySelector('#pvu-money-status');
       if (statusEl) {
         if (result.ok) {
-          statusEl.textContent = '✓ Money aggiornato a ' + (result.sceneMoney || input.value);
+          statusEl.textContent = t('money.updated') + (result.sceneMoney || input.value);
           statusEl.className = 'pvu-status ok';
           input.style.borderColor = '#4caf50';
           setTimeout(function() { input.style.borderColor = ''; }, 1000);
         } else {
-          statusEl.textContent = '✗ ' + (result.error || 'Errore');
+          statusEl.textContent = (result.error || t('money.error'));
           statusEl.className = 'pvu-status err';
         }
       }
@@ -230,13 +413,13 @@ const PvuPanel = (() => {
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-money-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('money.waiting');
     section.appendChild(statusEl);
 
     // Info
     const info = document.createElement('div');
     info.className = 'pvu-info';
-    info.textContent = 'Modifica scene.money (run) + permaMoney (persistente). Il save viene salvato automaticamente.';
+    info.textContent = t('money.info');
     section.appendChild(info);
 
     parentEl.appendChild(section);
@@ -251,7 +434,7 @@ const PvuPanel = (() => {
   function updateMoneyStatus(statusEl, input) {
     if (!statusEl) return;
     const money = window.__pvu.moneyOverride.getMoney();
-    statusEl.textContent = 'Money corrente: $' + money.toLocaleString();
+    statusEl.textContent = t('money.current') + money.toLocaleString();
     statusEl.className = 'pvu-status ok';
     if (document.activeElement !== input) {
       input.value = money;
@@ -263,7 +446,7 @@ const PvuPanel = (() => {
     if (containerEl) {
       containerEl.classList.toggle('pvu-hidden', !isOpen);
     }
-    log('Panel', isOpen ? 'aperto' : 'chiuso');
+    log('Panel', isOpen ? 'opened' : 'closed');
   }
 
   function open() {
@@ -279,6 +462,10 @@ const PvuPanel = (() => {
   function destroy() {
     if (moneyTimer) clearInterval(moneyTimer);
     moneyTimer = null;
+    if (stripTimer) { clearInterval(stripTimer); stripTimer = null; }
+    const stripEl = document.getElementById('pvu-strip');
+    if (stripEl) stripEl.remove();
+    closeAbout();
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;
@@ -292,6 +479,8 @@ const PvuPanel = (() => {
     open: open,
     close: close,
     destroy: destroy,
+    openAbout: openAbout,
+    closeAbout: closeAbout,
     isOpen: function() { return isOpen; },
   };
 })();

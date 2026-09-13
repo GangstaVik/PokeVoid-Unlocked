@@ -150,6 +150,119 @@ window.__pvu = window.__pvu || {};
 window.__pvu.config = PvuConfig;
 
 
+// --- src/i18n.js ---
+// i18n.js — UI dictionary and translation helper (v1.6.0)
+/* global window */
+'use strict';
+
+window.__pvu = window.__pvu || {};
+
+const PvuI18n = (function () {
+  const DICT = {
+    en: {
+      // Panel / tabs
+      'panel.title': 'PokeVoid-Unlocked',
+      'tab.money': 'Money',
+      'tab.roll': 'Roll',
+      'tab.skill': 'Skill',
+      'tab.voucher': 'Voucher',
+      'tab.battle': 'Battle',
+      'tab.essence': 'Essence',
+      // Money tab
+      'money.title': 'MONEY OVERRIDE',
+      'money.placeholder': 'New amount',
+      'money.waiting': 'Waiting...',
+      'money.info': 'Edits scene.money (run) + permaMoney (persistent). The save is written automatically.',
+      'money.current': 'Current money: $',
+      'money.updated': 'Money updated to ',
+      'money.error': 'Error',
+      // Roll tab
+      'roll.title': 'ROLL CONTROLLER',
+      'roll.noCost': 'No Cost',
+      'roll.noCostDesc': 'WAIVE_ROLL_FEE_OVERRIDE — all rerolls free',
+      'roll.luckLock': 'LUCK LOCK',
+      'roll.luckLockDesc': 'Locks the luck value (1-7) for roll offers',
+      'roll.luckInfo': '1-7 (5 = default). Affects the quality of roll offers; does not touch battle party luck and does not affect shop/ball-lock.',
+      'roll.itemCount': 'ITEM COUNT',
+      'roll.itemInfo': 'Adds options to roll offers (e.g. +2 = 5 options with the 3 base ones).',
+      'roll.hookStatus': 'HOOK STATUS',
+      'roll.waiting': 'Waiting...',
+      'roll.hooksActive': 'Hooks active',
+      'roll.waitingHooks': 'Waiting for hooks...',
+      // Skill tab
+      'skill.title': 'SKILL POINTS',
+      'skill.activeChampion': 'Active champion:',
+      'skill.detecting': 'Detecting...',
+      'skill.selectChampion': 'Select Champion (override):',
+      'skill.versionWarning': 'Champion skill version changed! Previous unlocks may no longer be valid.',
+      'skill.waiting': 'Waiting...',
+      'skill.lockedTitle': 'LOCKED SKILLS',
+      'skill.noneLocked': 'No locked skills (or no active champion in the run)',
+      'skill.selectPlaceholder': 'Select Champion',
+      'skill.unlock': 'Unlock',
+      'skill.category': 'Cat: ',
+      'skill.locked': 'Locked: ',
+      'skill.statusLocked': 'SP: ',
+      'skill.noActiveRun': 'No active run',
+      // Battle tab
+      'battle.shinyTitle': 'ALWAYS SHINY',
+      'battle.shinyName': 'Always Shiny',
+      'battle.shinyDesc': 'Every Pokemon encountered is born shiny (wild, boss, rival, legendary)',
+      'battle.waiting': 'Waiting...',
+      'battle.catchTitle': 'CATCH ANY',
+      'battle.catchName': 'Catch Any',
+      'battle.catchDesc': 'When the Catch toggle is active: the first Pokéball on a single target (non-rival/non-scripted) always catches.',
+      'battle.specialsName': 'Catch special cases',
+      'battle.specialsDesc': 'Allows forced capture also on scripted, final, special and boss-major encounters (risk: quest progression). Default OFF.',
+      'battle.l1Fallback': 'L1 (fallback)',
+      'battle.wrapperNotActive': 'wrapper NOT active (waiting for battle)',
+      'battle.wrapperActive': 'wrapper active',
+      'battle.idConfirmed': 'id confirmed',
+      'battle.overrideArmed': 'override armed',
+      'battle.overrideNotActive': '— probability override NOT active',
+      'battle.level': 'Level: ',
+      'battle.forcedCatches': 'Forced catches: ',
+      'battle.realizedCatches': 'Realized catches: ',
+      'battle.specialCases': 'Special cases: ',
+      'battle.errors': 'Errors: ',
+      'battle.disabled': 'Catch Any disabled',
+      // Voucher tab
+      'voucher.title': 'Voucher Editor',
+      'voucher.info': 'Edits vouchers. The game saves automatically.',
+      'voucher.updated': 'All vouchers updated',
+      'voucher.waiting': 'Waiting...',
+      'voucher.error': 'Error',
+      // Essence tab
+      'essence.title': 'TYPE ESSENCE',
+      'essence.apiMissing': 'Type Essence API not found in this build: editor disabled.',
+      'essence.error': 'Error: ',
+      // Status strip
+      'strip.gameWaiting': 'Waiting for game...',
+      'strip.gameRunning': 'Game running',
+      'strip.overrides': 'Overrides',
+      // About modal
+      'about.title': 'About',
+      'about.shortcut': 'Shortcut',
+      'about.rebind': 'Rebind',
+      'about.version': 'Version',
+      'about.features': 'Features',
+      'about.pressKey': 'Press new shortcut...',
+      'about.hintToggle': 'toggles the panel'
+    }
+  };
+
+  function t(key) {
+    return DICT.en[key] || key;
+  }
+
+  return {
+    t: t,
+    DICT: DICT
+  };
+})();
+
+window.__pvu.i18n = PvuI18n;
+
 // --- src/utils/helpers.js ---
 const PvuHelpers = (() => {
   const LOG_PREFIX = '[PvuHelpers]';
@@ -355,16 +468,16 @@ const PvuStorage = (() => {
       const key = 'data_' + username;
       const data = localStorage.getItem(key);
       if (!data) {
-        warn('Nessun save da backupare per utente:', username);
+        warn('No save to back up for user:', username);
         return { ok: true }; // nothing to backup
       }
       const ts = Date.now();
       const backupKey = 'data_pvu_backup_' + ts + '_' + username;
       localStorage.setItem(backupKey, data);
-      log('Backup creato:', backupKey, '(' + data.length + ' bytes)');
+      log('Backup created:', backupKey, '(' + data.length + ' bytes)');
       return { ok: true, key: backupKey };
     } catch (e) {
-      error('Backup fallito:', e);
+      error('Backup failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -382,22 +495,22 @@ const PvuStorage = (() => {
       const key = 'data_' + username;
       const actual = localStorage.getItem(key);
       if (actual !== expectedValue) {
-        warn('MISMATCH post-write! Prendo rollback da backup:', backupKey);
+        warn('MISMATCH after write! Taking rollback from backup:', backupKey);
         if (backupKey) {
           const backupData = localStorage.getItem(backupKey);
           if (backupData) {
             localStorage.setItem(key, backupData);
-            log('Rollback completato da:', backupKey);
+            log('Rollback completed from:', backupKey);
           } else {
-            error('Backup non trovato:', backupKey);
+            error('Backup not found:', backupKey);
           }
         }
         return { ok: false, mismatch: true };
       }
-      log('Validazione post-write OK');
+      log('Post-write validation OK');
       return { ok: true };
     } catch (e) {
-      error('Validazione fallita:', e);
+      error('Validation failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -433,7 +546,7 @@ const PvuStorage = (() => {
 
       return { ok: true };
     } catch (e) {
-      error('writeSave fallito:', e);
+      error('writeSave failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -450,7 +563,7 @@ const PvuStorage = (() => {
       if (!raw) return null;
       return JSON.parse(raw);
     } catch (e) {
-      error('readSave fallito:', e);
+      error('readSave failed:', e);
       return null;
     }
   }
@@ -618,7 +731,7 @@ const PvuStorage = (() => {
           const username = key.substring(5);
           const backup = createBackup(username);
           if (!backup.ok) {
-            warn('Backup fallito durante sanitize, chiave saltata:', key, backup.error);
+            warn('Backup failed during sanitize, key skipped:', key, backup.error);
             continue;
           }
 
@@ -626,13 +739,13 @@ const PvuStorage = (() => {
             localStorage.setItem(key, jsonStr);
             const validation = validatePostWrite(username, jsonStr, backup.key);
             if (!validation.ok) {
-              error('Validazione sanitize fallita per', key, '— rollback applicato');
+              error('Sanitize validation failed for', key, '— rollback applied');
               continue;
             }
             fixed++;
-            log('Sanitizzato', key, '(campi numerici corretti)' + (backup.key ? ' | backup: ' + backup.key : ''));
+            log('Sanitized', key, '(numeric fields corrected)' + (backup.key ? ' | backup: ' + backup.key : ''));
           } catch (e) {
-            error('Write sanitize fallito per', key, e);
+            error('Sanitize write failed for', key, e);
             // rollback manuale se validatePostWrite non ha potuto agire
             try {
               const bk = localStorage.getItem(backup.key);
@@ -643,11 +756,11 @@ const PvuStorage = (() => {
       }
 
       if (fixed > 0) {
-        log('Sanitizzazione completata:', fixed, 'chiavi corrette');
+        log('Sanitization completed:', fixed, 'keys corrected');
       }
       return { ok: true, fixed: fixed };
     } catch (e) {
-      error('sanitizeSavedData fallito:', e);
+      error('sanitizeSavedData failed:', e);
       return { ok: false, fixed: 0, error: e.message || String(e) };
     }
   }
@@ -765,13 +878,13 @@ const PvuGameBridge = (() => {
     try {
       const Phaser = window.Phaser;
       if (!Phaser || !Phaser.Game) {
-        log('Phaser non disponibile, retry più tardi');
+        log('Phaser unavailable, retrying later');
         return false;
       }
 
       // FIX 3: guardia anti-doppio-hook — idempotente, safe da ri-chiamare
       if (Phaser.Game[Symbol.for('pvuPatched')]) {
-        log('hookPhaserGame già applicato, skip');
+        log('hookPhaserGame already applied, skipping');
         return true;
       }
 
@@ -781,7 +894,7 @@ const PvuGameBridge = (() => {
         const instance = OriginalGame.apply(this, arguments) || this;
         STATE.gameInstance = instance;
         window.__pvu_game = instance;
-        log('Phaser.Game catturato via constructor hook');
+        log('Phaser.Game captured via constructor hook');
         return instance;
       };
 
@@ -792,10 +905,10 @@ const PvuGameBridge = (() => {
       // FIX 3: marca come patchato — next call ritorna true senza re-wrap
       Phaser.Game[Symbol.for('pvuPatched')] = true;
 
-      log('Hook Phaser.Game applicato (attende istanza...)');
+      log('Phaser.Game hook applied (waiting for instance...)');
       return true;
     } catch (e) {
-      warn('hookPhaserGame fallito:', e);
+      warn('hookPhaserGame failed:', e);
       return false;
     }
   }
@@ -809,7 +922,7 @@ const PvuGameBridge = (() => {
       const scripts = document.querySelectorAll('script[src]');
       for (const s of scripts) {
         if (s.src && s.src.indexOf('assets/index') !== -1) {
-          log('Bundle script trovato:', s.src);
+          log('Bundle script found:', s.src);
         }
       }
       const allScripts = document.querySelectorAll('script:not([src])');
@@ -821,12 +934,12 @@ const PvuGameBridge = (() => {
       }
       if (combined.length > 10000) {
         window.__pvu._bundleSource = combined;
-        log('Bundle inline catturato:', combined.length, 'chars');
+        log('Inline bundle captured:', combined.length, 'chars');
         return true;
       }
       return false;
     } catch (e) {
-      warn('captureBundleSource fallito:', e);
+      warn('captureBundleSource failed:', e);
       return false;
     }
   }
@@ -904,7 +1017,7 @@ const PvuGameBridge = (() => {
         if (entry && entry.parent && entry.parent.game) {
           STATE.gameInstance = entry.parent.game;
           window.__pvu_game = entry.parent.game;
-          log('Game recuperato via CanvasPool (getGame self-heal)');
+          log('Game recovered via CanvasPool (getGame self-heal)');
           return STATE.gameInstance;
         }
       }
@@ -954,12 +1067,12 @@ const PvuGameBridge = (() => {
       const v = gameData.permaMoney;
       if (typeof v === 'bigint') {
         gameData.permaMoney = Number(v);
-        warn('permaMoney era BigInt → normalizzato a Number (safety net runtime)');
+        warn('permaMoney was BigInt → normalized to Number (runtime safety net)');
       } else if (typeof v === 'string') {
         const m = /^(\d+)n?$/.exec(v.trim());
         if (m) {
           gameData.permaMoney = Number(m[1]);
-          warn('permaMoney era stringa ("' + v + '") → normalizzato a Number (safety net runtime)');
+          warn('permaMoney was string ("' + v + '") → normalized to Number (runtime safety net)');
         }
       }
       // Marca per evitare re-check inutili nello stesso oggetto (poll 500ms).
@@ -969,7 +1082,7 @@ const PvuGameBridge = (() => {
         Object.defineProperty(gameData, '__pvu_sanitized', { value: true, writable: false, configurable: true, enumerable: false });
       } catch (e) { /* ignore */ }
     } catch (e) {
-      warn('sanitizeGameDataRuntime fallito:', e);
+      warn('sanitizeGameDataRuntime failed:', e);
     }
     return gameData;
   }
@@ -1005,7 +1118,7 @@ const PvuGameBridge = (() => {
         if (candidate && candidate.game) {
           STATE.battleScene = candidate;
           window.__pvu_battleScene = candidate;
-          log('Battle scene catturato da phase instance (' +
+          log('Battle scene captured from phase instance (' +
               (phaseObj.constructor ? phaseObj.constructor.name : '?') + ')');
         }
       }
@@ -1052,7 +1165,7 @@ const PvuGameBridge = (() => {
       if (game) {
         const gd = getGameData();
         if (gd) {
-          log('gameData trovato via game instance');
+          log('gameData found via game instance');
           clearInterval(pollInterval);
           return;
         }
@@ -1060,17 +1173,17 @@ const PvuGameBridge = (() => {
 
       const scene = getBattleScene();
       if (scene) {
-        log('battle scene trovato via CanvasPool');
+        log('battle scene found via CanvasPool');
         clearInterval(pollInterval);
         return;
       }
 
       if (pollGameInfo()) {
-        log('gameInfo disponibile');
+        log('gameInfo available');
       }
 
       if (pollCount > 120) {
-        log('timeout polling — il gioco non è partito?');
+        log('polling timeout — did the game start?');
         clearInterval(pollInterval);
       }
     }, 500);
@@ -1222,13 +1335,13 @@ const PvuPhaseObserver = (() => {
 
     const scene = bridge.getBattleScene();
     if (!scene) {
-      log('battle scene non ancora disponibile per phase hook');
+      log('battle scene not yet available for phase hook');
       return false;
     }
 
     const proto = Object.getPrototypeOf(scene);
     if (!proto) {
-      log('proto non trovato');
+      log('proto not found');
       return false;
     }
 
@@ -1303,7 +1416,7 @@ const PvuPhaseObserver = (() => {
     bridge.setCurrentPhase(normalized);
 
     if (normalized !== oldPhase) {
-      log('Fase cambiata:', oldPhase, '->', normalized);
+      log('Phase changed:', oldPhase, '->', normalized);
       emitPhaseChange(normalized, oldPhase);
     }
   }
@@ -1347,7 +1460,7 @@ const PvuPhaseObserver = (() => {
       bridge.setCurrentPhase(phase);
 
       if (phase !== oldPhase) {
-        log('[poll] Fase cambiata:', oldPhase, '->', phase);
+        log('[poll] Phase changed:', oldPhase, '->', phase);
         emitPhaseChange(phase, oldPhase);
       }
     }, 500);
@@ -1373,7 +1486,7 @@ const PvuPhaseObserver = (() => {
       const hooked = hookPhaseMethods();
       if (hooked) {
         clearInterval(hookInterval);
-        log('Phase hooks applicati');
+        log('Phase hooks applied');
         return;
       }
       // FIX 4: stop anche se window.gameInfo esiste OPPURE la battle scene è
@@ -1382,12 +1495,12 @@ const PvuPhaseObserver = (() => {
       const bridge = window.__pvu.bridge;
       if (window.gameInfo || (bridge && bridge.getBattleScene())) {
         clearInterval(hookInterval);
-        log('Phase hooks: gameInfo/battle scene disponibile, stop retry');
+        log('Phase hooks: gameInfo/battle scene available, stopping retry');
         return;
       }
       if (hookAttempts > 30) {
         clearInterval(hookInterval);
-        log('Phase hooks: timeout, uso solo polling');
+        log('Phase hooks: timeout, polling only');
       }
     }, 1000);
 
@@ -1548,7 +1661,7 @@ const PvuRollController = (() => {
         }
         if (window.__pvu._rollOptionsNativeSrc) {
           const src = window.__pvu._rollOptionsNativeSrc;
-          log('Native getModifierTypeOptions sorgente catturata:', src.slice(0, 240) + ' ... ' + src.slice(-160));
+          log('Native getModifierTypeOptions source captured:', src.slice(0, 240) + ' ... ' + src.slice(-160));
         }
       }
 
@@ -1572,7 +1685,7 @@ const PvuRollController = (() => {
               poolLength = probe.length;
             }
           } catch (e) {
-            warn('getModifierTypeOptions probe fallita, nessun clamp applicato:', e);
+            warn('getModifierTypeOptions probe failed, no clamp applied:', e);
             poolLength = null;
           }
         }
@@ -1581,7 +1694,7 @@ const PvuRollController = (() => {
           effectiveCount = requestedCount + state.itemCountExtra;
           if (poolLength !== null && poolLength < requestedCount) {
             effectiveCount = Math.min(effectiveCount, poolLength);
-            log('Clamp T1: pool saturo (sonda ' + poolLength + ' < nominale ' + requestedCount + ') => ' + effectiveCount + ' opzioni');
+            log('Clamp T1: pool saturated (probe ' + poolLength + ' < nominal ' + requestedCount + ') => ' + effectiveCount + ' options');
           }
         }
 
@@ -1611,7 +1724,7 @@ const PvuRollController = (() => {
       };
       phaseObj._pvu_optionsHooked = true;
       patched = true;
-      log('getModifierTypeOptions patched su phase instance (itemcount + luck pool + clamp T1)');
+      log('getModifierTypeOptions patched on phase instance (itemcount + luck pool + clamp T1)');
     }
 
     // Hook wild luck una volta sola (istanza arena long-lived)
@@ -1624,7 +1737,7 @@ const PvuRollController = (() => {
       phaseObj[PVU_PATCHED] = true;
       state.patchedPhaseCount++;
       state.lastPatchedPhase = phaseObj.constructor ? phaseObj.constructor.name : 'unknown';
-      log('Phase patchata:', state.lastPatchedPhase);
+      log('Patched phase:', state.lastPatchedPhase);
     }
     return patched;
   }
@@ -1665,7 +1778,7 @@ const PvuRollController = (() => {
       log('arena.randomSpecies hooked (wild luck overridable)');
       return true;
     } catch (e) {
-      warn('hookWildLuck fallito:', e);
+      warn('hookWildLuck failed:', e);
       return false;
     }
   }
@@ -1707,7 +1820,7 @@ const PvuRollController = (() => {
   function registerPhaseInterceptors() {
     const observer = window.__pvu.phaseObserver;
     if (!observer) {
-      warn('phaseObserver non disponibile');
+      warn('phaseObserver unavailable');
       return;
     }
 
@@ -1720,7 +1833,7 @@ const PvuRollController = (() => {
       checkHooksApplied();
     });
 
-    log('Phase interceptors registrati');
+    log('Phase interceptors registered');
   }
 
   /**
@@ -1732,7 +1845,7 @@ const PvuRollController = (() => {
     if (originals.getRerollCost) {
       state.hooksApplied = true;
       state.active = true;
-      log('Hooks applicati con successo (getRerollCost patched)');
+      log('Hooks applied successfully (getRerollCost patched)');
       emitStateChange();
     }
   }
@@ -1974,12 +2087,12 @@ const PvuEncounterOverride = (() => {
             !proto[ENCOUNTER_PATCHED]) {
           state.pokemonProto = proto;
           state.pokemonClass = (c.constructor.name) || 'unknown';
-          log('Pokemon prototype scoperto:', state.pokemonClass);
+          log('Pokemon prototype discovered:', state.pokemonClass);
           return proto;
         }
       }
     } catch (e) {
-      warn('discoverPokemonProto fallito:', e);
+      warn('discoverPokemonProto failed:', e);
     }
     return null;
   }
@@ -2048,8 +2161,8 @@ const PvuEncounterOverride = (() => {
     } catch (e) { /* name è solo per il log */ }
     if (!warnedMissingVariantAssets.has(name)) {
       warnedMissingVariantAssets.add(name);
-      warn('Asset variante shiny non disponibili per', name,
-        '— variant saltata, sparkle e texture shiny base mantenute');
+      warn('Shiny variant assets unavailable for', name,
+        '— variant skipped, keeping base sparkle and shiny texture');
     }
   }
 
@@ -2128,13 +2241,13 @@ const PvuEncounterOverride = (() => {
 
       const proto = state.pokemonProto || discoverPokemonProto();
       if (!proto) {
-        log('Pokemon prototype non ancora disponibile (retry)');
+        log('Pokemon prototype not yet available (retry)');
         return false;
       }
 
       const helpers = window.__pvu.helpers;
       if (!helpers || typeof helpers.hookPrototype !== 'function') {
-        warn('helpers non disponibile, impossibile hookare');
+        warn('helpers unavailable, cannot hook');
         return false;
       }
 
@@ -2143,7 +2256,7 @@ const PvuEncounterOverride = (() => {
         originalTrySetShiny = proto.trySetShiny.__pvuOriginal || proto.trySetShiny;
         state.hooksApplied = true;
         state.active = true;
-        log('trySetShiny già hookato, skip');
+        log('trySetShiny already hooked, skipping');
         return true;
       }
 
@@ -2162,10 +2275,10 @@ const PvuEncounterOverride = (() => {
 
       state.hooksApplied = true;
       state.active = true;
-      log('trySetShiny hookato su Pokemon.prototype (class: ' + state.pokemonClass + ')');
+      log('trySetShiny hooked on Pokemon.prototype (class: ' + state.pokemonClass + ')');
       return true;
     } catch (e) {
-      warn('hookTrySetShiny fallito:', e);
+      warn('hookTrySetShiny failed:', e);
       return false;
     }
   }
@@ -2188,7 +2301,7 @@ const PvuEncounterOverride = (() => {
       // discoverPokemonProto è chiamato ad ogni tentativo.
       if (attempts > 30) {
         clearInterval(timer);
-        warn('Timeout: Pokemon prototype non trovato dopo 30s');
+        warn('Timeout: Pokemon prototype not found after 30s');
       }
     }, 1000);
 
@@ -2224,7 +2337,7 @@ const PvuEncounterOverride = (() => {
       state.shiny = !!settings.shiny;
       return state.shiny;
     } catch (e) {
-      warn('loadPersistedState fallito:', e);
+      warn('loadPersistedState failed:', e);
       return false;
     }
   }
@@ -2237,7 +2350,7 @@ const PvuEncounterOverride = (() => {
 
     loadPersistedState();
     if (state.shiny) {
-      log('Always Shiny attivo da settings precedente');
+      log('Always Shiny active from previous settings');
     }
 
     applyHooks();
@@ -2253,11 +2366,11 @@ const PvuEncounterOverride = (() => {
         const wrapped = proto.trySetShiny;
         if (wrapped && wrapped[ENCOUNTER_PATCHED]) {
           proto.trySetShiny = originalTrySetShiny;
-          log('trySetShiny ripristinato');
+          log('trySetShiny restored');
         }
       }
     } catch (e) {
-      warn('destroy fallito:', e);
+      warn('destroy failed:', e);
     }
     originalTrySetShiny = null;
     state.hooksApplied = false;
@@ -2422,7 +2535,7 @@ const PvuCaptureOverride = (() => {
     if (state.errorCount >= 3 && state.level === 2) {
       state.level = 1;
       state.level2Verified = false;
-      log('Auto-degrade a L1 dopo', state.errorCount, 'errori del wrapper');
+      log('Auto-degrade to L1 after', state.errorCount, 'wrapper errors');
     }
   }
 
@@ -2440,7 +2553,7 @@ const PvuCaptureOverride = (() => {
 
   function clearCaptureTokens(reason) {
     if (!state.captureTokens.length) return;
-    if (reason) log('Token cattura invalidati (' + reason + ')');
+    if (reason) log('Catch tokens invalidated (' + reason + ')');
     state.captureTokens = [];
   }
 
@@ -2480,10 +2593,10 @@ const PvuCaptureOverride = (() => {
         }
         if (rival) {
           if (!forceSpecial) {
-            log('Esclusione: rival (scripted)');
+            log('Exclusion: rival (scripted)');
             return true;
           }
-          log('Casi speciali: rival (scripted) superato (forceSpecial ON)');
+          log('Special cases: rival (scripted) passed (forceSpecial ON)');
         }
       }
 
@@ -2493,11 +2606,11 @@ const PvuCaptureOverride = (() => {
           return p && typeof p.isActive === 'function' && p.isActive(true);
         });
       if (enemies.length > 1) {
-        log('Esclusione: multi-target (' + enemies.length + ' nemici attivi)');
+        log('Exclusion: multi-target (' + enemies.length + ' active enemies)');
         return true;
       }
       if (enemies.length < 1) {
-        log('Esclusione: nessun nemico attivo');
+        log('Exclusion: no active enemy');
         return true;
       }
 
@@ -2505,10 +2618,10 @@ const PvuCaptureOverride = (() => {
       var arena = scene.arena;
       if (arena && typeof arena.biomeType === 'number' && arena.biomeType === BIOME_END) {
         if (!forceSpecial) {
-          log('Esclusione: biome END');
+          log('Exclusion: END biome');
           return true;
         }
-        log('Casi speciali: biome END superato (forceSpecial ON)');
+        log('Special cases: END biome passed (forceSpecial ON)');
       }
 
       // 4. wave pre-final (C1: isWavePreFinal che solleva ⇒ escluso — a meno
@@ -2524,10 +2637,10 @@ const PvuCaptureOverride = (() => {
         }
         if (preFinal) {
           if (!forceSpecial) {
-            log('Esclusione: wave pre-final');
+            log('Exclusion: pre-final wave');
             return true;
           }
-          log('Casi speciali: wave pre-final superato (forceSpecial ON)');
+          log('Special cases: pre-final wave passed (forceSpecial ON)');
         }
       }
 
@@ -2548,10 +2661,10 @@ const PvuCaptureOverride = (() => {
           });
           if (preThousand) {
             if (!forceSpecial) {
-              log('Esclusione: leggendario/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
+              log('Exclusion: legendary/OP-form pre-wave-1000 (wave=' + waveIdx + ')');
               return true;
             }
-            log('Casi speciali: leggendario/OP-form pre-wave-1000 superato (forceSpecial ON)');
+            log('Special cases: legendary/OP-form pre-wave-1000 passed (forceSpecial ON)');
           }
         }
       } catch (e) {
@@ -2568,16 +2681,16 @@ const PvuCaptureOverride = (() => {
         var seg = target.bossSegmentIndex;
         if (typeof seg !== 'number' || seg >= 1) {
           if (!forceSpecial) {
-            log('Esclusione: boss-major (segmentIndex=' + seg + ')');
+            log('Exclusion: boss-major (segmentIndex=' + seg + ')');
             return true;
           }
-          log('Casi speciali: boss-major superato (forceSpecial ON)');
+          log('Special cases: boss-major passed (forceSpecial ON)');
         }
       }
 
       return false;
     } catch (e) {
-      warn('isExcluded fallito, fail-closed:', e);
+      warn('isExcluded failed, fail-closed:', e);
       return true;
     }
   }
@@ -2682,7 +2795,7 @@ const PvuCaptureOverride = (() => {
         typeof phaseObj.failCatch !== 'function') {
       if (state.rollOverrideReady === null) {
         state.rollOverrideReady = false;
-        warn('AttemptCapturePhase senza metodi wrappabili: override probabilità NON attivo');
+        warn('AttemptCapturePhase without wrappable methods: probability override NOT active');
       }
       return;
     }
@@ -2698,7 +2811,7 @@ const PvuCaptureOverride = (() => {
         if (token && token.pokemon) {
           if (armCapture(self, token.pokemon)) {
             removeTokenAt(state.captureTokens.indexOf(token));
-            log('Override probabilità armato: cattura #' + state.injectedCount + ' (randSeedInt → -1)');
+            log('Probability override armed: catch #' + state.injectedCount + ' (randSeedInt → -1)');
           }
         }
       } catch (e) {
@@ -2713,7 +2826,7 @@ const PvuCaptureOverride = (() => {
       try {
         if (self.__pvuArmed) {
           state.capturedCount++;
-          log('Cattura realizzata (#' + state.capturedCount + ')');
+          log('Catch realized (#' + state.capturedCount + ')');
         }
         disarmCapture(self);
       } catch (e) {
@@ -2739,7 +2852,7 @@ const PvuCaptureOverride = (() => {
     }
 
     phaseObj.__pvuCaptureWired = true;
-    log('AttemptCapturePhase wrappata (override probabilità attivo)');
+    log('AttemptCapturePhase wrapped (probability override active)');
   }
 
   /**
@@ -2862,7 +2975,7 @@ const PvuCaptureOverride = (() => {
       // V1.4: override solo bersaglio singolo (ridondante con isExcluded,
       // difesa in profondità contro race condition multi-target)
       if (enemies.length !== 1) {
-        log('forceInject: nemici attivi =', enemies.length, '→ inject solo bersaglio singolo, skip');
+        log('forceInject: active enemies =', enemies.length, '→ injecting single target only, skip');
         return false;
       }
 
@@ -2904,7 +3017,7 @@ const PvuCaptureOverride = (() => {
         if (typeof scene.money === 'number' && scene.money < cost &&
             moneyOverride && typeof moneyOverride.setMoney === 'function') {
           moneyOverride.setMoney(cost);
-          log('Money pre-granted per trainer snatch:', cost);
+          log('Money pre-granted for trainer snatch:', cost);
         }
       }
 
@@ -2919,7 +3032,7 @@ const PvuCaptureOverride = (() => {
       }
 
       state.injectedCount++;
-      log('Cattura forzata (#' + state.injectedCount + ') fieldIndex=' + fi +
+      log('Forced catch (#' + state.injectedCount + ') fieldIndex=' + fi +
           ', cmd=' + t + ', target=' + enemies.map(function(e) {
             return e.species ? e.species.speciesId : '?';
           }).join(','));
@@ -2973,7 +3086,7 @@ const PvuCaptureOverride = (() => {
           if (state.ballCommandId === null) {
             state.ballCommandId = tcCmd;
             state.level2Verified = true; // report only (v1.4, NON è nel gate)
-            log('ID BALL confermato nativamente: ballCommandId =', state.ballCommandId);
+            log('BALL ID natively confirmed: ballCommandId =', state.ballCommandId);
           }
         }
         return true;
@@ -2989,7 +3102,7 @@ const PvuCaptureOverride = (() => {
       // Esclusioni deterministiche (rival/END/pre-final/multi-target/boss-major)
       if (isExcluded(scene)) {
         state.blockedCount++;
-        log('Azione BALL bloccata dal nativo e DECLINATA per esclusione (#', state.blockedCount, ')');
+        log('BALL action blocked natively and DECLINED due to exclusion (#', state.blockedCount, ')');
         return result;
       }
 
@@ -3024,13 +3137,13 @@ const PvuCaptureOverride = (() => {
 
     // Anti-riwrap dedicato
     if (proto.handleCommand[CAPTURE_PATCHED]) {
-      log('handleCommand già wrappato (CAPTURE_PATCHED)');
+      log('handleCommand already wrapped (CAPTURE_PATCHED)');
       state.hooksApplied = true;
       state.commandProto = proto;
       return;
     }
 
-    log('CommandPhase scoperto via discovery interceptor');
+    log('CommandPhase found via discovery interceptor');
     installWrapper(proto);
   }
 
@@ -3077,12 +3190,12 @@ const PvuCaptureOverride = (() => {
 
     var helpers = window.__pvu.helpers;
     if (!helpers || typeof helpers.hookPrototype !== 'function') {
-      warn('helpers non disponibile');
+      warn('helpers unavailable');
       return false;
     }
 
     if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
-      log('handleCommand già wrappato (installWrapper)');
+      log('handleCommand already wrapped (installWrapper)');
       state.hooksApplied = true;
       return true;
     }
@@ -3096,7 +3209,7 @@ const PvuCaptureOverride = (() => {
     } catch (e) { /* proprietary attrs su function: safe in pratica */ }
 
     state.hooksApplied = true;
-    log('handleCommand wrapper installato su CommandPhase.prototype');
+    log('handleCommand wrapper installed on CommandPhase.prototype');
     return true;
   }
 
@@ -3121,7 +3234,7 @@ const PvuCaptureOverride = (() => {
         typeof phaseObserver.onPhasePush === 'function') {
       phaseObserver.onPhasePush(discoveryInterceptor);
       state._discoveryRegistered = true;
-      log('Discovery interceptor registrato');
+      log('Discovery interceptor registered');
     }
 
     // V1.4: interceptor tentativi cattura (AttemptCapturePhase, push+unshift)
@@ -3130,7 +3243,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(attemptInterceptor);
       phaseObserver.onPhaseUnshift(attemptInterceptor);
       state._attemptRegistered = true;
-      log('Attempt-capture interceptor registrato');
+      log('Attempt-capture interceptor registered');
     }
 
     // V1.4: interceptor confine di turno (invalida token pendenti)
@@ -3139,7 +3252,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(turnBoundaryInterceptor);
       phaseObserver.onPhaseUnshift(turnBoundaryInterceptor);
       state._turnBoundaryRegistered = true;
-      log('Turn-boundary interceptor registrato');
+      log('Turn-boundary interceptor registered');
     }
 
     // V1.4: L1 backstop live (99 balls a ogni CommandPhase push)
@@ -3148,7 +3261,7 @@ const PvuCaptureOverride = (() => {
       phaseObserver.onPhasePush(l1BackstopInterceptor);
       phaseObserver.onPhaseUnshift(l1BackstopInterceptor);
       state._l1BackstopRegistered = true;
-      log('L1 backstop interceptor registrato');
+      log('L1 backstop interceptor registered');
     }
 
     // Tentativo diretto (senza attendere il prossimo phase push)
@@ -3199,7 +3312,7 @@ const PvuCaptureOverride = (() => {
       storage.setSettings({ forceSpecial: state.forceSpecial });
     }
 
-    log('Casi speciali (forceSpecial): ' + (state.forceSpecial ? 'ON' : 'OFF'));
+    log('Special cases (forceSpecial): ' + (state.forceSpecial ? 'ON' : 'OFF'));
     return state.forceSpecial;
   }
 
@@ -3217,7 +3330,7 @@ const PvuCaptureOverride = (() => {
       if (typeof settings.forceSpecial === 'boolean') state.forceSpecial = settings.forceSpecial;
       return state.enabled;
     } catch (e) {
-      warn('loadPersistedState fallito:', e);
+      warn('loadPersistedState failed:', e);
       return false;
     }
   }
@@ -3231,7 +3344,7 @@ const PvuCaptureOverride = (() => {
 
     loadPersistedState();
     if (state.enabled) {
-      log('Catch Any attivo da settings precedente');
+      log('Catch Any active from previous settings');
     }
 
     applyHooks();
@@ -3269,11 +3382,11 @@ const PvuCaptureOverride = (() => {
         var proto = state.commandProto;
         if (proto.handleCommand && proto.handleCommand[CAPTURE_PATCHED]) {
           proto.handleCommand = originalHandleCommand;
-          log('handleCommand ripristinato');
+          log('handleCommand restored');
         }
       }
     } catch (e) {
-      warn('destroy fallito:', e);
+      warn('destroy failed:', e);
     }
     clearCaptureTokens('destroy');
     originalHandleCommand = null;
@@ -3339,12 +3452,12 @@ const PvuMoneyOverride = (() => {
       const scene = bridge.getBattleScene();
 
       if (!scene) {
-        return { ok: false, error: 'Battle scene non disponibile' };
+        return { ok: false, error: 'Battle scene unavailable' };
       }
 
       // scene.money (run corrente)
       scene.money = amount;
-      log('scene.money impostato a', amount);
+      log('scene.money set to', amount);
 
       // gameData.permaMoney (persistente)
       const gameData = bridge.findGameData();
@@ -3352,12 +3465,12 @@ const PvuMoneyOverride = (() => {
         // Difensivo: se permaMoney è già bigint/stringa "123n" (save corrotto in memoria),
         // normalizzalo prima che il gioco lo usi (Math.round/NaN-freeze).
         if (typeof gameData.permaMoney === 'bigint') {
-          warn('permaMoney era BigInt (' + String(gameData.permaMoney) + ') → normalizzato a Number');
+          warn('permaMoney was BigInt (' + String(gameData.permaMoney) + ') → normalized to Number');
           gameData.permaMoney = Number(gameData.permaMoney);
         } else if (typeof gameData.permaMoney === 'string') {
           const m = /^(\d+)n?$/.exec(gameData.permaMoney.trim());
           if (m) {
-            warn('permaMoney era stringa ("' + gameData.permaMoney + '") → normalizzato a Number');
+            warn('permaMoney was string ("' + gameData.permaMoney + '") → normalized to Number');
             gameData.permaMoney = Number(m[1]);
           }
         }
@@ -3365,7 +3478,7 @@ const PvuMoneyOverride = (() => {
         // FIX v1.2.1: era BigInt(amount) — corrompeva permaMoney (freeze Ω + load error).
         // Il gioco tratta permaMoney come number: assegniamo sempre Number.
         gameData.permaMoney = Number(amount);
-        log('permaMoney impostato a', gameData.permaMoney);
+        log('permaMoney set to', gameData.permaMoney);
 
         // Refresh UI — cerca updateMoneyText o updateGameInfo
         try {
@@ -3373,7 +3486,7 @@ const PvuMoneyOverride = (() => {
             scene.updateMoneyText();
           }
         } catch(e) {
-          warn('updateMoneyText non disponibile:', e);
+          warn('updateMoneyText unavailable:', e);
         }
 
         try {
@@ -3389,11 +3502,11 @@ const PvuMoneyOverride = (() => {
 
         return { ok: true, sceneMoney: amount, permaMoney: amount };
       } else {
-        warn('gameData non disponibile — money solo in run');
-        return { ok: true, sceneMoney: amount, error: 'gameData non trovato, solo run money aggiornato' };
+        warn('gameData unavailable — money run-only');
+        return { ok: true, sceneMoney: amount, error: 'gameData not found, run money updated only' };
       }
     } catch (e) {
-      warn('setMoney fallito:', e);
+      warn('setMoney failed:', e);
       return { ok: false, error: e.message || String(e) };
     }
   }
@@ -3429,10 +3542,10 @@ const PvuMoneyOverride = (() => {
     try {
       if (gameData && typeof gameData.saveSystem === 'function') {
         gameData.saveSystem();
-        log('saveSystem() invocato');
+        log('saveSystem() invoked');
       }
     } catch(e) {
-      warn('saveSystem fallito:', e);
+      warn('saveSystem failed:', e);
     }
   }
 
@@ -3442,7 +3555,7 @@ const PvuMoneyOverride = (() => {
   function applyFromInput(inputElement) {
     if (!inputElement) return { ok: false, error: 'Input element not found' };
     const val = parseInt(inputElement.value, 10);
-    if (isNaN(val)) return { ok: false, error: 'Valore non valido' };
+    if (isNaN(val)) return { ok: false, error: 'Invalid value' };
     return setMoney(val);
   }
 
@@ -3526,7 +3639,7 @@ const PvuSkillTreeEditor = (() => {
       const key = champId + '|' + source;
       if (key !== lastChampLogKey) {
         lastChampLogKey = key;
-        log('Champion risolto:', champId, '(source:', source + ')');
+        log('Champion resolved:', champId, '(source:', source + ')');
       }
       return champId;
     }
@@ -3536,7 +3649,7 @@ const PvuSkillTreeEditor = (() => {
     const key = fallback + '|gender-default';
     if (key !== lastChampLogKey) {
       lastChampLogKey = key;
-      log('Champion risolto (gender default):', fallback, '(source: gender-default)');
+      log('Champion resolved (gender default):', fallback, '(source: gender-default)');
     }
     return fallback;
   }
@@ -3557,11 +3670,11 @@ const PvuSkillTreeEditor = (() => {
   function setSkillPoints(amount) {
     const ast = getActiveSkillTree();
     if (!ast) {
-      warn('activeSkillTree non disponibile (nessuna run attiva?)');
+      warn('activeSkillTree unavailable (no active run?)');
       return false;
     }
     ast.skillPoints = Math.max(0, Math.floor(amount));
-    log('activeSkillTree.skillPoints impostato a', ast.skillPoints);
+    log('activeSkillTree.skillPoints set to', ast.skillPoints);
     return true;
   }
 
@@ -3632,10 +3745,10 @@ const PvuSkillTreeEditor = (() => {
    */
   function unlockSkill(skillId, unlockableCategory) {
     const gd = window.__pvu.bridge.findGameData();
-    if (!gd) return { ok: false, error: 'gameData non disponibile' };
+    if (!gd) return { ok: false, error: 'gameData unavailable' };
 
     const champId = resolveActiveChampionId();
-    if (!champId) return { ok: false, error: 'Nessun champion attivo nella run' };
+    if (!champId) return { ok: false, error: 'No active champion in run' };
 
     let champData = gd.championData && gd.championData[champId];
     if (!champData) {
@@ -3654,7 +3767,7 @@ const PvuSkillTreeEditor = (() => {
       if (idx !== -1) {
         lockedArr.splice(idx, 1);
         champData.lockedSkills = lockedArr; // riscrivi normalizzato
-        log('Skill', skillId, 'rimossa da lockedSkills');
+        log('Skill', skillId, 'removed from lockedSkills');
       }
     }
 
@@ -3664,7 +3777,7 @@ const PvuSkillTreeEditor = (() => {
       champData[unlockedKey] = champData[unlockedKey] || [];
       if (champData[unlockedKey].indexOf(skillId) === -1) {
         champData[unlockedKey].push(skillId);
-        log('Skill', skillId, 'aggiunta a', unlockedKey);
+        log('Skill', skillId, 'added to', unlockedKey);
       }
     }
 
@@ -3672,10 +3785,10 @@ const PvuSkillTreeEditor = (() => {
     try {
       if (typeof gd.saveSystem === 'function') {
         gd.saveSystem();
-        log('saveSystem() invocato dopo unlock');
+        log('saveSystem() invoked after unlock');
       }
     } catch(e) {
-      warn('saveSystem fallito:', e);
+      warn('saveSystem failed:', e);
     }
 
     return { ok: true };
@@ -3888,24 +4001,24 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
     }
 
     function applyEssence(key, rawTarget) {
-        if (!ready) return { ok: false, reason: 'editor non pronto (API Type Essence non trovata)' };
+        if (!ready) return { ok: false, reason: 'editor not ready (Type Essence API not found)' };
         var rawStr = String(rawTarget).trim();
-        if (rawStr === '') return { ok: false, reason: 'valore vuoto: inserisci un numero' };
-        if (!/^\d+$/.test(rawStr)) return { ok: false, reason: 'valore non valido (solo cifre): ' + rawTarget };
+        if (rawStr === '') return { ok: false, reason: 'empty value: enter a number' };
+        if (!/^\d+$/.test(rawStr)) return { ok: false, reason: 'invalid value (digits only): ' + rawTarget };
         var ids = resolveTypeIds();
-        if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'tipo non disponibile nel build corrente: ' + key };
+        if (!ids || typeof ids[key] !== 'number') return { ok: false, reason: 'type not available in current build: ' + key };
         var target = Math.min(Math.floor(Number(rawStr)), Number.MAX_SAFE_INTEGER);
         var id = ids[key];
-        if (id < 0) return { ok: false, reason: 'tipo ' + key + ' (id ' + id + ') non scrivibile' };
+        if (id < 0) return { ok: false, reason: 'type ' + key + ' (id ' + id + ') not writable' };
         var current = getCount(id);
         var delta = target - current;
         if (delta === 0) return { ok: true, current: current, key: key, target: target };
         if (delta > 0) {
-            try { gameData.addEssence(id, delta); } catch (e) { return { ok: false, reason: 'addEssence fallita: ' + e.message }; }
+            try { gameData.addEssence(id, delta); } catch (e) { return { ok: false, reason: 'addEssence failed: ' + e.message }; }
         } else {
             try {
-                if (gameData.tryConsumeEssence(id, -delta) !== true) return { ok: false, reason: 'tryConsumeEssence rifiutata' };
-            } catch (e) { return { ok: false, reason: 'tryConsumeEssence fallita: ' + e.message }; }
+                if (gameData.tryConsumeEssence(id, -delta) !== true) return { ok: false, reason: 'tryConsumeEssence refused' };
+            } catch (e) { return { ok: false, reason: 'tryConsumeEssence failed: ' + e.message }; }
         }
         return { ok: true, key: key, target: target, current: current };
     }
@@ -3939,19 +4052,19 @@ window.__pvu.skillTreeEditor = PvuSkillTreeEditor;
         if (typeEnum && !isTypeEnumValid(typeEnum)) typeEnum = null;
         enumMismatch = false;
         if (!ready) {
-            log('API Type Essence non trovata — editor disattivato (status onesto)');
+            log('Type Essence API not found — editor disabled (honest status)');
             return;
         }
         if (typeEnum) {
             var mm = verifyEnum(typeEnum);
             enumMismatch = mm.length > 0;
             if (enumMismatch) {
-                log('AVVISO: enum runtime non coincide con la mappa canonica: ' + mm.join(', ') + ' — usati gli id canonici (v3.1.8)');
+                log('WARNING: runtime enum does not match canonical map: ' + mm.join(', ') + ' — canonical ids used (v3.1.8)');
             } else {
-                log('Enum tipi verificato: 23/23 corrispondenze con la mappa canonica');
+                log('Type enum verified: 23/23 matches with canonical map');
             }
         } else {
-            log('Enum tipi non trovato: usata la mappa canonica hardcoded (23 tipi) — nessun fallback id=indice');
+            log('Type enum not found: hardcoded canonical map used (23 types) — no id=index fallback');
         }
     }
 
@@ -3974,7 +4087,6 @@ const PvuVoucherEditor = (() => {
   const LOG_PREFIX = '[PvuVoucherEditor]';
   const TYPES = [0, 1, 2, 3];
   const LABELS = ['REGULAR', 'PLUS', 'PREMIUM', 'GOLDEN'];
-  const VOUCHER_EMOJI = ['🎫', '🎟️', '⭐', '👑'];
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -4066,7 +4178,6 @@ const PvuVoucherEditor = (() => {
   return {
     TYPES: TYPES,
     LABELS: LABELS,
-    VOUCHER_EMOJI: VOUCHER_EMOJI,
     getVoucherCounts: getVoucherCounts,
     setVoucherCount: setVoucherCount,
     setAllVoucherCounts: setAllVoucherCounts,
@@ -4078,376 +4189,604 @@ window.__pvu.voucherEditor = PvuVoucherEditor;
 
 
 // --- src/ui/styles.js ---
-const PvuStyles = (() => {
-  const LOG_PREFIX = '[PvuStyles]';
-  let injected = false;
-
-  function inject() {
-    if (injected) return;
-    injected = true;
-
-    const css = `
-/* PokeVoid-Unlocked Styles */
-#pvu-container {
-  position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 380px;
-  pointer-events: none;
-  z-index: 99998;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  transition: transform 0.3s ease;
-}
-#pvu-container.pvu-hidden {
-  transform: translateX(100%);
-}
-
-/* Floating button */
-#pvu-fab {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: #1a1a2e;
-  border: 2px solid #e94560;
-  border-radius: 50%;
-  color: #e94560;
-  font-size: 18px;
-  cursor: pointer;
-  z-index: 99999;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s, background 0.2s;
-  user-select: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-#pvu-fab:hover {
-  transform: scale(1.1);
-  background: #e94560;
-  color: #1a1a2e;
-}
-#pvu-fab:active {
-  transform: scale(0.95);
-}
-
-/* Panel */
-#pvu-panel {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 380px;
-  background: rgba(26, 26, 46, 0.95);
-  backdrop-filter: blur(10px);
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: #eee;
-}
-
-/* Header */
-#pvu-panel .pvu-header {
-  padding: 12px 16px;
-  background: #e94560;
-  color: #1a1a2e;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-#pvu-panel .pvu-header .pvu-close {
-  cursor: pointer;
-  font-size: 20px;
-  color: #1a1a2e;
-  background: none;
-  border: none;
-  padding: 0 4px;
-}
-
-/* Tabs */
-#pvu-panel .pvu-tabs {
-  display: flex;
-  border-bottom: 1px solid #333;
-}
-#pvu-panel .pvu-tab {
-  flex: 1;
-  padding: 10px 8px;
-  text-align: center;
-  cursor: pointer;
-  color: #888;
-  font-size: 14px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  font-family: inherit;
-}
-#pvu-panel .pvu-tab:hover {
-  color: #eee;
-}
-#pvu-panel .pvu-tab.pvu-tab-active {
-  color: #e94560;
-  border-bottom-color: #e94560;
-}
-
-/* Tab content */
-#pvu-panel .pvu-tab-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 16px;
-}
-
-/* Section */
-#pvu-panel .pvu-section {
-  margin-bottom: 16px;
-}
-#pvu-panel .pvu-section-title {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 16px;
-  color: #e94560;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-/* Toggle switch */
-#pvu-panel .pvu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #333;
-}
-#pvu-panel .pvu-toggle-label {
-  font-size: 14px;
-  color: #f0f0f0;
-}
-#pvu-panel .pvu-toggle-desc {
-  font-size: 13px;
-  color: #aaa;
-}
-#pvu-panel .pvu-switch {
-  width: 40px;
-  height: 22px;
-  background: #333;
-  border-radius: 11px;
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-#pvu-panel .pvu-switch.on {
-  background: #e94560;
-}
-#pvu-panel .pvu-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  background: #eee;
-  border-radius: 50%;
-  transition: transform 0.2s;
-}
-#pvu-panel .pvu-switch.on::after {
-  transform: translateX(18px);
-}
-
-/* Input row */
-#pvu-panel .pvu-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-#pvu-panel .pvu-input {
-  flex: 1;
-  background: #111;
-  border: 1px solid #444;
-  color: #eee;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-}
-#pvu-panel .pvu-input:focus {
-  border-color: #e94560;
-  outline: none;
-}
-#pvu-panel .pvu-btn {
-  background: #e94560;
-  color: #fff;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  white-space: nowrap;
-}
-#pvu-panel .pvu-btn:hover {
-  background: #d63851;
-}
-#pvu-panel .pvu-btn:active {
-  transform: scale(0.97);
-}
-#pvu-panel .pvu-btn.pvu-btn-sm {
-  padding: 4px 10px;
-  font-size: 13px;
-}
-#pvu-panel .pvu-btn.pvu-btn-outline {
-  background: transparent;
-  border: 1px solid #e94560;
-  color: #e94560;
-}
-#pvu-panel .pvu-btn.pvu-btn-outline:hover {
-  background: #e9456022;
-}
-
-/* Slider */
-#pvu-panel .pvu-slider-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-#pvu-panel .pvu-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  background: #333;
-  border-radius: 2px;
-  outline: none;
-}
-#pvu-panel .pvu-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  background: #e94560;
-  border-radius: 50%;
-  cursor: pointer;
-}
-#pvu-panel .pvu-slider-val {
-  min-width: 30px;
-  text-align: center;
-  font-size: 14px;
-  color: #e94560;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-/* Status badge */
-#pvu-panel .pvu-status {
-  font-size: 13px;
-  color: #aaa;
-  margin-top: 4px;
-}
-#pvu-panel .pvu-status.ok { color: #66bb6a; }
-#pvu-panel .pvu-status.warn { color: #ffb74d; }
-#pvu-panel .pvu-status.err { color: #ef5350; }
-
-/* Skill list */
-#pvu-panel .pvu-skill-item {
-  padding: 8px;
-  background: #111;
-  border-radius: 4px;
-  margin-bottom: 6px;
-  border-left: 3px solid #e94560;
-}
-#pvu-panel .pvu-skill-name {
-  font-size: 14px;
-  color: #f0f0f0;
-  margin-bottom: 4px;
-}
-#pvu-panel .pvu-skill-meta {
-  font-size: 13px;
-  color: #aaa;
-}
-
-/* Warning box */
-#pvu-panel .pvu-warning {
-  background: rgba(255, 152, 0, 0.15);
-  border: 1px solid #ff9800;
-  border-radius: 4px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: #ffb74d;
-}
-
-/* Info box */
-#pvu-panel .pvu-info {
-  background: rgba(33, 150, 243, 0.1);
-  border: 1px solid #2196f3;
-  border-radius: 4px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: #90caf9;
-}
-
-/* Scrollbar */
-#pvu-panel .pvu-tab-content::-webkit-scrollbar {
-  width: 6px;
-}
-#pvu-panel .pvu-tab-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-#pvu-panel .pvu-tab-content::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 3px;
-}
-
-/* Champion selector */
-#pvu-panel .pvu-champ-select {
-  background: #111;
-  border: 1px solid #444;
-  color: #eee;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  width: 100%;
-  margin-bottom: 8px;
-}
-#pvu-panel .pvu-champ-select option {
-  background: #1a1a2e;
-  color: #eee;
-}
-
-/* Version badge */
-#pvu-panel .pvu-ver {
-  font-size: 12px;
-  color: #888;
-  text-align: right;
-  margin-top: 8px;
-}
-`;
-
-    const style = document.createElement('style');
-    style.id = 'pvu-styles';
-    style.textContent = css;
-    (document.head || document.documentElement).appendChild(style);
-    console.log('[PvuStyles] CSS iniettato');
-  }
-
-  return { inject: inject };
-})();
+// styles.js — design tokens and UI stylesheet (v1.6.0)
+/* global window, document */
+'use strict';
 
 window.__pvu = window.__pvu || {};
-window.__pvu.styles = PvuStyles;
 
+const PvuStyles = (function () {
+  function inject() {
+    if (document.getElementById('pvu-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pvu-style';
+    style.textContent = `
+      :root {
+        --pvu-bg: #0e1014;
+        --pvu-surface: #171a21;
+        --pvu-border: #2a2f3a;
+        --pvu-text: #e6e9ef;
+        --pvu-secondary: #9aa4b2;
+        --pvu-accent: #4fa3ff;
+        --pvu-success: #3ddc97;
+        --pvu-warning: #ffb454;
+        --pvu-danger: #ff5c5c;
+        --pvu-radius-lg: 8px;
+        --pvu-radius-md: 6px;
+        --pvu-radius-sm: 4px;
+        --pvu-space-1: 4px;
+        --pvu-space-2: 8px;
+        --pvu-space-3: 12px;
+        --pvu-space-4: 16px;
+        --pvu-space-5: 24px;
+        --pvu-font-xs: 11px;
+        --pvu-font-sm: 13px;
+        --pvu-font-md: 15px;
+        --pvu-font-lg: 17px;
+        --pvu-transition: 0.18s;
+      }
+
+      #pvu-container {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 380px;
+        pointer-events: none;
+        z-index: 99998;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--pvu-text);
+      }
+
+      #pvu-fab {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--pvu-surface);
+        border: 2px solid var(--pvu-accent);
+        color: var(--pvu-accent);
+        cursor: pointer;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform var(--pvu-transition), background var(--pvu-transition), color var(--pvu-transition);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+      }
+      #pvu-fab:hover {
+        transform: scale(1.08);
+        background: rgba(79, 163, 255, 0.16);
+      }
+
+      #pvu-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 380px;
+        background: rgba(23, 26, 33, 0.95);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        border-left: 1px solid var(--pvu-border);
+        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
+        display: flex;
+        flex-direction: column;
+        pointer-events: auto;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      .pvu-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--pvu-space-2);
+        padding: var(--pvu-space-3) var(--pvu-space-4);
+        border-bottom: 1px solid var(--pvu-border);
+        background: var(--pvu-surface);
+      }
+      .pvu-header-title {
+        font-size: var(--pvu-font-md);
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: var(--pvu-accent);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pvu-close {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: var(--pvu-radius-md);
+        background: transparent;
+        color: var(--pvu-secondary);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color var(--pvu-transition), background var(--pvu-transition);
+        flex-shrink: 0;
+      }
+      .pvu-close:hover {
+        color: var(--pvu-text);
+        background: var(--pvu-border);
+      }
+
+      .pvu-tabs {
+        display: flex;
+        gap: var(--pvu-space-1);
+        padding: var(--pvu-space-2) var(--pvu-space-3) 0;
+        background: var(--pvu-bg);
+        border-bottom: 1px solid var(--pvu-border);
+        flex-shrink: 0;
+      }
+      .pvu-tab {
+        padding: var(--pvu-space-2) var(--pvu-space-3);
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--pvu-secondary);
+        font-size: var(--pvu-font-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition: color var(--pvu-transition), border-color var(--pvu-transition), background var(--pvu-transition);
+        border-radius: var(--pvu-radius-md) var(--pvu-radius-md) 0 0;
+      }
+      .pvu-tab:hover {
+        color: var(--pvu-text);
+      }
+      .pvu-tab.active {
+        color: var(--pvu-accent);
+        border-bottom-color: var(--pvu-accent);
+        background: rgba(79, 163, 255, 0.08);
+      }
+
+      .pvu-tab-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--pvu-space-4);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: var(--pvu-space-3);
+      }
+      .pvu-tab-content::-webkit-scrollbar {
+        width: 8px;
+      }
+      .pvu-tab-content::-webkit-scrollbar-thumb {
+        background: var(--pvu-border);
+        border-radius: var(--pvu-radius-sm);
+      }
+
+      .pvu-screen {
+        display: flex;
+        flex-direction: column;
+        gap: var(--pvu-space-3);
+        font-size: var(--pvu-font-sm);
+      }
+
+      .pvu-section-title {
+        font-size: var(--pvu-font-md);
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--pvu-accent);
+        margin: 0;
+      }
+
+      .pvu-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: var(--pvu-space-2);
+        padding: var(--pvu-space-2);
+        border: 1px solid var(--pvu-border);
+        border-radius: var(--pvu-radius-md);
+        background: var(--pvu-surface);
+      }
+      .pvu-toggle-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        cursor: pointer;
+        flex: 1;
+      }
+      .pvu-toggle-name {
+        font-size: var(--pvu-font-sm);
+        font-weight: 600;
+        color: var(--pvu-text);
+      }
+      .pvu-toggle-desc {
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        line-height: 1.35;
+      }
+      .pvu-toggle-row input[type='checkbox'] {
+        accent-color: var(--pvu-accent);
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+      }
+
+      .pvu-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: var(--pvu-space-2) var(--pvu-space-3);
+        border: 1px solid var(--pvu-border);
+        border-radius: var(--pvu-radius-md);
+        background: var(--pvu-bg);
+        color: var(--pvu-text);
+        font-size: var(--pvu-font-sm);
+        transition: border-color var(--pvu-transition);
+      }
+      .pvu-input:focus {
+        outline: none;
+        border-color: var(--pvu-accent);
+      }
+      .pvu-input::placeholder {
+        color: var(--pvu-secondary);
+      }
+
+      .pvu-btn {
+        padding: var(--pvu-space-2) var(--pvu-space-4);
+        border: 1px solid var(--pvu-accent);
+        border-radius: var(--pvu-radius-md);
+        background: rgba(79, 163, 255, 0.12);
+        color: var(--pvu-accent);
+        font-size: var(--pvu-font-sm);
+        font-weight: 700;
+        cursor: pointer;
+        transition: background var(--pvu-transition), color var(--pvu-transition);
+      }
+      .pvu-btn:hover {
+        background: var(--pvu-accent);
+        color: #0e1014;
+      }
+      .pvu-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .pvu-status-box {
+        padding: var(--pvu-space-2) var(--pvu-space-3);
+        border-radius: var(--pvu-radius-md);
+        background: var(--pvu-surface);
+        border: 1px solid var(--pvu-border);
+        font-size: var(--pvu-font-xs);
+        font-family: Consolas, Menlo, monospace;
+        line-height: 1.45;
+        color: var(--pvu-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .pvu-status-box.ok {
+        border-color: rgba(61, 220, 151, 0.5);
+        color: var(--pvu-success);
+      }
+      .pvu-status-box.warn {
+        border-color: rgba(255, 180, 84, 0.5);
+        color: var(--pvu-warning);
+      }
+      .pvu-status-box.err {
+        border-color: rgba(255, 92, 92, 0.5);
+        color: var(--pvu-danger);
+      }
+
+      .pvu-list-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--pvu-space-2);
+        padding: var(--pvu-space-2);
+        border: 1px solid var(--pvu-border);
+        border-radius: var(--pvu-radius-md);
+        background: var(--pvu-surface);
+        font-size: var(--pvu-font-sm);
+      }
+
+      .pvu-info {
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        line-height: 1.45;
+      }
+
+      .pvu-strip {
+        display: flex;
+        gap: var(--pvu-space-2);
+        padding: var(--pvu-space-2) var(--pvu-space-4);
+        border-bottom: 1px solid var(--pvu-border);
+        background: var(--pvu-bg);
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+      .pvu-chip {
+        padding: 2px var(--pvu-space-2);
+        border-radius: 999px;
+        border: 1px solid var(--pvu-border);
+        background: var(--pvu-surface);
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        white-space: nowrap;
+      }
+      .pvu-chip.ok {
+        color: var(--pvu-success);
+        border-color: rgba(61, 220, 151, 0.45);
+      }
+      .pvu-chip.warn {
+        color: var(--pvu-warning);
+        border-color: rgba(255, 180, 84, 0.45);
+      }
+
+      .pvu-footer {
+        padding: var(--pvu-space-2) var(--pvu-space-4);
+        border-top: 1px solid var(--pvu-border);
+        background: var(--pvu-surface);
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--pvu-space-2);
+        flex-shrink: 0;
+      }
+      .pvu-footer-hint {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pvu-footer .pvu-btn {
+        padding: 2px var(--pvu-space-2);
+        font-size: var(--pvu-font-xs);
+      }
+
+      .pvu-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        pointer-events: auto;
+      }
+      .pvu-modal-card {
+        width: min(90vw, 360px);
+        max-height: 80vh;
+        overflow-y: auto;
+        background: var(--pvu-surface);
+        border: 1px solid var(--pvu-border);
+        border-radius: var(--pvu-radius-lg);
+        padding: var(--pvu-space-4);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+        display: flex;
+        flex-direction: column;
+        gap: var(--pvu-space-3);
+      }
+      .pvu-modal-card .pvu-close {
+        align-self: flex-end;
+      }
+      .pvu-modal-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--pvu-space-2);
+        font-size: var(--pvu-font-sm);
+      }
+      .pvu-modal-row-label {
+        color: var(--pvu-secondary);
+      }
+      .pvu-modal-row-value {
+        color: var(--pvu-text);
+        font-weight: 600;
+      }
+      .pvu-features {
+        margin: 0;
+        padding-left: var(--pvu-space-4);
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        line-height: 1.6;
+      }
+
+      @media (max-width: 560px) {
+        #pvu-container,
+        #pvu-panel {
+          left: 0;
+          right: 0;
+          width: auto;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #pvu-panel,
+        #pvu-fab,
+        .pvu-tab,
+        .pvu-btn,
+        .pvu-close {
+          transition: none;
+        }
+      }
+
+      /* ----- pre-v1.6.0 selector parity (tokenized) ----- */
+      #pvu-container.pvu-hidden {
+        transform: translateX(100%);
+      }
+      #pvu-fab:active {
+        transform: scale(0.95);
+      }
+      .pvu-tab.pvu-tab-active {
+        color: var(--pvu-accent);
+        border-bottom-color: var(--pvu-accent);
+        background: rgba(79, 163, 255, 0.08);
+      }
+      .pvu-section {
+        margin: 0 0 var(--pvu-space-4);
+      }
+      .pvu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--pvu-space-2) 0;
+        border-bottom: 1px solid var(--pvu-border);
+      }
+      .pvu-switch {
+        width: 40px;
+        height: 22px;
+        background: var(--pvu-border);
+        border-radius: 11px;
+        cursor: pointer;
+        position: relative;
+        transition: background var(--pvu-transition);
+        flex-shrink: 0;
+      }
+      .pvu-switch.on {
+        background: var(--pvu-accent);
+      }
+      .pvu-switch::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        background: var(--pvu-text);
+        border-radius: 50%;
+        transition: transform var(--pvu-transition);
+      }
+      .pvu-switch.on::after {
+        transform: translateX(18px);
+      }
+      .pvu-input-row {
+        display: flex;
+        gap: var(--pvu-space-2);
+        align-items: center;
+        margin-bottom: var(--pvu-space-2);
+      }
+      .pvu-btn:active {
+        transform: scale(0.97);
+      }
+      .pvu-btn.pvu-btn-sm {
+        padding: var(--pvu-space-1) 10px;
+        font-size: var(--pvu-font-sm);
+      }
+      .pvu-btn.pvu-btn-outline {
+        background: transparent;
+        border: 1px solid var(--pvu-accent);
+        color: var(--pvu-accent);
+      }
+      .pvu-btn.pvu-btn-outline:hover {
+        background: rgba(79, 163, 255, 0.12);
+      }
+      .pvu-slider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: var(--pvu-space-2);
+      }
+      .pvu-slider {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        height: 4px;
+        background: var(--pvu-border);
+        border-radius: 2px;
+        outline: none;
+      }
+      .pvu-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: var(--pvu-accent);
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .pvu-slider-val {
+        min-width: 30px;
+        text-align: center;
+        font-size: var(--pvu-font-sm);
+        color: var(--pvu-accent);
+      }
+      .pvu-status {
+        font-size: var(--pvu-font-sm);
+        color: var(--pvu-secondary);
+        margin-top: var(--pvu-space-1);
+      }
+      .pvu-status.ok {
+        color: var(--pvu-success);
+      }
+      .pvu-status.warn {
+        color: var(--pvu-warning);
+      }
+      .pvu-status.err {
+        color: var(--pvu-danger);
+      }
+      .pvu-skill-item {
+        padding: var(--pvu-space-2);
+        background: var(--pvu-bg);
+        border-radius: var(--pvu-radius-sm);
+        margin-bottom: 6px;
+        border-left: 3px solid var(--pvu-accent);
+      }
+      .pvu-skill-name {
+        font-size: var(--pvu-font-sm);
+        color: var(--pvu-text);
+        margin-bottom: var(--pvu-space-1);
+      }
+      .pvu-skill-meta {
+        font-size: var(--pvu-font-sm);
+        color: var(--pvu-secondary);
+      }
+      .pvu-warning {
+        background: rgba(255, 180, 84, 0.15);
+        border: 1px solid var(--pvu-warning);
+        border-radius: var(--pvu-radius-sm);
+        padding: var(--pvu-space-2) var(--pvu-space-3);
+        margin-bottom: var(--pvu-space-3);
+        font-size: var(--pvu-font-sm);
+        color: var(--pvu-warning);
+      }
+      .pvu-champ-select {
+        background: var(--pvu-bg);
+        border: 1px solid var(--pvu-border);
+        color: var(--pvu-text);
+        padding: 6px 10px;
+        border-radius: var(--pvu-radius-sm);
+        font-size: var(--pvu-font-sm);
+        width: 100%;
+        margin-bottom: var(--pvu-space-2);
+      }
+      .pvu-champ-select option {
+        background: var(--pvu-surface);
+        color: var(--pvu-text);
+      }
+      .pvu-ver {
+        font-size: var(--pvu-font-xs);
+        color: var(--pvu-secondary);
+        text-align: right;
+        margin-top: var(--pvu-space-2);
+      }
+      .pvu-tab-content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+    `;
+    document.head.appendChild(style);
+    console.log('[PvuStyles] CSS injected');
+  }
+
+  return {
+    inject: inject
+  };
+})();
+
+window.__pvu.styles = PvuStyles;
 
 // --- src/ui/floating-btn.js ---
 const PvuFloatingBtn = (() => {
@@ -4464,7 +4803,10 @@ const PvuFloatingBtn = (() => {
 
     btnEl = document.createElement('button');
     btnEl.id = 'pvu-fab';
-    btnEl.textContent = '⚡';
+    btnEl.textContent = 'PV';
+    btnEl.style.fontSize = '13px';
+    btnEl.style.fontWeight = '800';
+    btnEl.style.color = '#4fa3ff';
     btnEl.title = 'PokeVoid-Unlocked';
     btnEl.setAttribute('aria-label', 'PokeVoid-Unlocked');
 
@@ -4478,14 +4820,14 @@ const PvuFloatingBtn = (() => {
     // Inserisci nel body appena disponibile
     if (document.body) {
       document.body.appendChild(btnEl);
-      log('Bottone creato');
+      log('Button created');
     } else {
       // document-start: aspetta body
       const observer = new MutationObserver(function() {
         if (document.body) {
           document.body.appendChild(btnEl);
           observer.disconnect();
-          log('Bottone creato (after body)');
+          log('Button created (after body)');
         }
       });
       observer.observe(document.documentElement || document, { childList: true, subtree: true });
@@ -4505,7 +4847,7 @@ const PvuFloatingBtn = (() => {
   function destroy() {
     if (btnEl && btnEl.parentNode) btnEl.parentNode.removeChild(btnEl);
     btnEl = null;
-    log('destroy');
+    log('Button destroyed');
   }
 
   return {
@@ -4521,10 +4863,178 @@ window.__pvu = window.__pvu || {};
 window.__pvu.floatingBtn = PvuFloatingBtn;
 
 
+// --- src/ui/hotkey.js ---
+// hotkey.js — rebindable panel toggle hotkey (v1.6.0)
+/* global window, document, localStorage */
+'use strict';
+
+window.__pvu = window.__pvu || {};
+
+const PvuHotkey = (function () {
+  const DEFAULT_COMBO = { ctrl: true, alt: false, shift: true, meta: false, key: 'p' };
+  const STORAGE_KEY = 'data_pvu_hotkey';
+  const CAPTURE_MS = 5000;
+  const MODIFIER_KEYS = ['Control', 'Alt', 'Shift', 'Meta'];
+
+  let combo = null;
+  let onToggle = null;
+  let capturing = false;
+  let captureCb = null;
+  let captureTimer = null;
+  let keyHandler = null;
+
+  function resolveStore() {
+    const pvu = window.__pvu || {};
+    if (pvu.storage && typeof pvu.storage.get === 'function' && typeof pvu.storage.set === 'function') {
+      return {
+        get: function (k) { try { return pvu.storage.get(k); } catch (e) { return null; } },
+        set: function (k, v) { try { pvu.storage.set(k, v); return true; } catch (e) { return false; } }
+      };
+    }
+    return {
+      get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+      set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+    };
+  }
+
+  function loadCombo() {
+    const raw = resolveStore().get(STORAGE_KEY);
+    if (!raw) return DEFAULT_COMBO;
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (parsed && typeof parsed === 'object' && typeof parsed.key === 'string' && parsed.key.length === 1) {
+        return {
+          ctrl: !!parsed.ctrl,
+          alt: !!parsed.alt,
+          shift: !!parsed.shift,
+          meta: !!parsed.meta,
+          key: parsed.key
+        };
+      }
+    } catch (e) { /* fall through to default */ }
+    return DEFAULT_COMBO;
+  }
+
+  function persist(c) {
+    return resolveStore().set(STORAGE_KEY, JSON.stringify(c));
+  }
+
+  function isEditableTarget(el) {
+    if (!el) return false;
+    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return true;
+    return !!el.isContentEditable;
+  }
+
+  function handleKeyDown(e) {
+    if (capturing) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCaptureKey(e);
+      return;
+    }
+    if (!onToggle || !combo) return;
+    if (isEditableTarget(e.target)) return;
+    const k = e.key ? e.key.toLowerCase() : '';
+    if (combo.key.toLowerCase() !== k) return;
+    if (!!combo.ctrl !== e.ctrlKey) return;
+    if (!!combo.alt !== e.altKey) return;
+    if (!!combo.shift !== e.shiftKey) return;
+    if (!!combo.meta !== e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onToggle();
+  }
+
+  function handleCaptureKey(e) {
+    if (MODIFIER_KEYS.indexOf(e.key) !== -1) return;
+    if (e.key && e.key.length !== 1) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl && !e.altKey) return;
+    if (e.key === 'Escape') {
+      stopCapture();
+      if (captureCb) { captureCb(null, combo); captureCb = null; }
+      return;
+    }
+    const newCombo = {
+      ctrl: !!e.ctrlKey,
+      alt: !!e.altKey,
+      shift: !!e.shiftKey,
+      meta: !!e.metaKey,
+      key: e.key.toLowerCase()
+    };
+    stopCapture();
+    persist(newCombo);
+    const old = combo;
+    combo = newCombo;
+    console.log('[PvuHotkey] Combo reassigned: ' + getComboLabel(newCombo));
+    if (captureCb) { captureCb(newCombo, old); captureCb = null; }
+  }
+
+  function startCapture(cb) {
+    capturing = true;
+    captureCb = cb;
+    if (captureTimer) clearTimeout(captureTimer);
+    captureTimer = setTimeout(function () {
+      capturing = false;
+      if (captureCb) { captureCb(null, combo); captureCb = null; }
+    }, CAPTURE_MS);
+  }
+
+  function stopCapture() {
+    capturing = false;
+    if (captureTimer) { clearTimeout(captureTimer); captureTimer = null; }
+  }
+
+  function getCombo() {
+    return combo;
+  }
+
+  function getComboLabel(c) {
+    const cur = c || combo;
+    if (!cur) return '';
+    const parts = [];
+    if (cur.ctrl) parts.push('Ctrl');
+    if (cur.alt) parts.push('Alt');
+    if (cur.shift) parts.push('Shift');
+    if (cur.meta) parts.push('Meta');
+    if (cur.key) parts.push(cur.key.toUpperCase());
+    return parts.join('+');
+  }
+
+  function init(toggleFn) {
+    onToggle = toggleFn;
+    combo = loadCombo();
+    keyHandler = function (e) { handleKeyDown(e); };
+    document.addEventListener('keydown', keyHandler, true);
+    console.log('[PvuHotkey] Hotkey ready: ' + getComboLabel());
+  }
+
+  function destroy() {
+    if (keyHandler) {
+      document.removeEventListener('keydown', keyHandler, true);
+      keyHandler = null;
+    }
+    onToggle = null;
+    stopCapture();
+  }
+
+  return {
+    init: init,
+    destroy: destroy,
+    startCapture: startCapture,
+    getCombo: getCombo,
+    getComboLabel: getComboLabel
+  };
+})();
+
+window.__pvu.hotkey = PvuHotkey;
+
 // --- src/ui/roll-screen.js ---
 // PARTE 2: rimossi toggle morti (freeReroll, poolQuality)
 // Luck Lock: influisce SOLO sulle offerte del roll (getModifierTypeOptions su), non su party luck/battle
 const PvuRollScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuRollScreen]';
   let containerEl = null;
   let refreshTimer = null;
@@ -4546,11 +5056,11 @@ const PvuRollScreen = (() => {
 
     const rerollTitle = document.createElement('div');
     rerollTitle.className = 'pvu-section-title';
-    rerollTitle.textContent = 'ROLL CONTROLLER';
+    rerollTitle.textContent = t('roll.title');
     rerollSection.appendChild(rerollTitle);
 
     // Cost Override
-    const costOverrideResult = createToggle('Nessun costo', 'WAIVE_ROLL_FEE_OVERRIDE — tutti i reroll gratis', false, function(val) {
+    const costOverrideResult = createToggle(t('roll.noCost'), t('roll.noCostDesc'), false, function(val) {
       window.__pvu.rollController.toggleCostOverride(val);
     });
     rerollSection.appendChild(costOverrideResult.row);
@@ -4564,7 +5074,7 @@ const PvuRollScreen = (() => {
 
     const luckTitle = document.createElement('div');
     luckTitle.className = 'pvu-section-title';
-    luckTitle.textContent = 'LUCK LOCK';
+    luckTitle.textContent = t('roll.luckLock');
     luckSection.appendChild(luckTitle);
 
     // Luck slider
@@ -4595,7 +5105,7 @@ const PvuRollScreen = (() => {
     luckSection.appendChild(luckSliderRow);
 
     // Luck Lock toggle
-    const luckLockResult = createToggle('Lock luck', 'Fissa il valore di luck (1-7) per le offerte del roll', false, function(val) {
+    const luckLockResult = createToggle('Lock luck', t('roll.luckLockDesc'), false, function(val) {
       window.__pvu.rollController.toggleLuckLock(val);
     });
     luckSection.appendChild(luckLockResult.row);
@@ -4604,7 +5114,7 @@ const PvuRollScreen = (() => {
     // Luck info
     const luckInfo = document.createElement('div');
     luckInfo.className = 'pvu-status';
-    luckInfo.textContent = '1-7 (5 = default). Influenza la qualità delle offerte del roll; non tocca il party luck delle battle e non raggiunge shop/ball-lock.';
+    luckInfo.textContent = t('roll.luckInfo');
     luckSection.appendChild(luckInfo);
 
     containerEl.appendChild(luckSection);
@@ -4615,7 +5125,7 @@ const PvuRollScreen = (() => {
 
     const itemTitle = document.createElement('div');
     itemTitle.className = 'pvu-section-title';
-    itemTitle.textContent = 'ITEM COUNT';
+    itemTitle.textContent = t('roll.itemCount');
     itemSection.appendChild(itemTitle);
 
     const sliderRow = document.createElement('div');
@@ -4646,7 +5156,7 @@ const PvuRollScreen = (() => {
 
     const itemInfo = document.createElement('div');
     itemInfo.className = 'pvu-status';
-    itemInfo.textContent = 'Aggiunge opzioni alle offerte del roll (es: +2 = 5 opzioni con le 3 base).';
+    itemInfo.textContent = t('roll.itemInfo');
     itemSection.appendChild(itemInfo);
 
     containerEl.appendChild(itemSection);
@@ -4657,13 +5167,13 @@ const PvuRollScreen = (() => {
 
     const statusTitle = document.createElement('div');
     statusTitle.className = 'pvu-section-title';
-    statusTitle.textContent = 'STATO HOOK';
+    statusTitle.textContent = t('roll.hookStatus');
     statusSection.appendChild(statusTitle);
 
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-roll-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('roll.waiting');
     statusSection.appendChild(statusEl);
 
     containerEl.appendChild(statusSection);
@@ -4736,7 +5246,7 @@ const PvuRollScreen = (() => {
     // Sync status text
     const statusEl = containerEl.querySelector('#pvu-roll-status');
     if (statusEl) {
-      const hookStatus = state.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      const hookStatus = state.hooksApplied ? t('roll.hooksActive') : t('roll.waitingHooks');
       const costStatus = state.costOverride ? ' | Cost Override: ON' : '';
       const luckStatus = state.luckLock ? ' | Luck Lock: ' + state.luckValue : '';
       const patchInfo = state.patchedPhaseCount > 0 ? ' | Phase patchate: ' + state.patchedPhaseCount : '';
@@ -4800,6 +5310,7 @@ window.__pvu.rollScreen = PvuRollScreen;
 // --- src/ui/skill-screen.js ---
 // FIX BUG 2: reads from activeSkillTree (per-run SP) + resolved champion ID
 const PvuSkillScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuSkillScreen]';
   let containerEl = null;
   let registeredPhaseFn = null;
@@ -4818,25 +5329,25 @@ const PvuSkillScreen = (() => {
 
     const spTitle = document.createElement('div');
     spTitle.className = 'pvu-section-title';
-    spTitle.textContent = 'SKILL POINTS';
+    spTitle.textContent = t('skill.title');
     spSection.appendChild(spTitle);
 
     // Active champion display (readonly — shows the run's active champion)
     const champActiveLabel = document.createElement('div');
     champActiveLabel.className = 'pvu-toggle-label';
-    champActiveLabel.textContent = 'Champion attivo:';
+    champActiveLabel.textContent = t('skill.activeChampion');
     spSection.appendChild(champActiveLabel);
 
     const champActiveDisplay = document.createElement('div');
     champActiveDisplay.className = 'pvu-status ok';
     champActiveDisplay.id = 'pvu-champ-active';
-    champActiveDisplay.textContent = 'Rilevamento...';
+    champActiveDisplay.textContent = t('skill.detecting');
     spSection.appendChild(champActiveDisplay);
 
     // Champion selector (for manual override)
     const champLabel = document.createElement('div');
     champLabel.className = 'pvu-toggle-label';
-    champLabel.textContent = 'Seleziona Champion (override):';
+    champLabel.textContent = t('skill.selectChampion');
     champLabel.style.marginTop = '8px';
     spSection.appendChild(champLabel);
 
@@ -4884,14 +5395,14 @@ const PvuSkillScreen = (() => {
     versionWarning.className = 'pvu-warning';
     versionWarning.style.display = 'none';
     versionWarning.id = 'pvu-version-warning';
-    versionWarning.textContent = '⚠️ Champion skill version cambiata! Unlock precedenti potrebbero non essere validi.';
+    versionWarning.textContent = t('skill.versionWarning');
     spSection.appendChild(versionWarning);
 
     // Status
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-skill-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('skill.waiting');
     spSection.appendChild(statusEl);
 
     containerEl.appendChild(spSection);
@@ -4902,7 +5413,7 @@ const PvuSkillScreen = (() => {
 
     const lockedTitle = document.createElement('div');
     lockedTitle.className = 'pvu-section-title';
-    lockedTitle.textContent = 'SKILL BLOCCATE';
+    lockedTitle.textContent = t('skill.lockedTitle');
     lockedSection.appendChild(lockedTitle);
 
     const lockedList = document.createElement('div');
@@ -4947,7 +5458,7 @@ const PvuSkillScreen = (() => {
     const champActiveDisplay = containerEl.querySelector('#pvu-champ-active');
     if (champActiveDisplay) {
       const activeChampId = editor.getSelectedChampionId();
-      champActiveDisplay.textContent = activeChampId || 'Nessuna run attiva';
+      champActiveDisplay.textContent = activeChampId || t('skill.noActiveRun');
     }
 
     // Aggiorna champion selector (populated from championData keys)
@@ -4958,7 +5469,7 @@ const PvuSkillScreen = (() => {
       if (gameData && gameData.championData) {
         const champs = Object.keys(gameData.championData);
         if (champSelect.options.length !== champs.length + 1) {
-          champSelect.innerHTML = '<option value="">-- Seleziona Champion --</option>';
+          champSelect.innerHTML = '<option value="">-- ' + t('skill.selectPlaceholder') + ' --</option>';
           for (let i = 0; i < champs.length; i++) {
             const opt = document.createElement('option');
             opt.value = champs[i];
@@ -4976,7 +5487,7 @@ const PvuSkillScreen = (() => {
       const ver = editor.checkVersionWarning();
       versionWarning.style.display = ver.changed ? 'block' : 'none';
       if (ver.changed) {
-        versionWarning.textContent = '⚠️ Champion skill version cambiata! (era ' + ver.oldVersion + ', ora ' + ver.newVersion + ')';
+        versionWarning.textContent = t('skill.versionWarning') + ' (was ' + ver.oldVersion + ', now ' + ver.newVersion + ')';
       }
     }
 
@@ -4988,7 +5499,7 @@ const PvuSkillScreen = (() => {
       if (unlockables.length === 0) {
         const info = document.createElement('div');
         info.className = 'pvu-info';
-        info.textContent = 'Nessuna skill bloccata (o nessun champion attivo nella run)';
+        info.textContent = t('skill.noneLocked');
         lockedList.appendChild(info);
       } else {
         for (let i = 0; i < unlockables.length; i++) {
@@ -5003,12 +5514,12 @@ const PvuSkillScreen = (() => {
 
           const metaEl = document.createElement('div');
           metaEl.className = 'pvu-skill-meta';
-          metaEl.textContent = 'Cat: ' + skill.category + ' | Lv: ' + skill.requiredLevel;
+          metaEl.textContent = t('skill.category') + skill.category + ' | Lv: ' + skill.requiredLevel;
           item.appendChild(metaEl);
 
           const unlockBtn = document.createElement('button');
           unlockBtn.className = 'pvu-btn pvu-btn-sm pvu-btn-outline';
-          unlockBtn.textContent = 'Sblocca';
+          unlockBtn.textContent = t('skill.unlock');
           unlockBtn.addEventListener('click', function() {
             const result = editor.unlockSkill(skill.skillId, skill.category);
             if (result.ok) {
@@ -5016,7 +5527,7 @@ const PvuSkillScreen = (() => {
               refreshUI();
             } else {
               item.style.borderColor = '#f44336';
-              setTimeout(function() { item.style.borderColor = '#e94560'; }, 1500);
+              setTimeout(function() { item.style.borderColor = '#ff5c5c'; }, 1500);
             }
           });
           item.appendChild(unlockBtn);
@@ -5032,7 +5543,7 @@ const PvuSkillScreen = (() => {
       const sp = editor.getSkillPoints();
       const champId = editor.getSelectedChampionId();
       const locked = (editor.getLockedSkills && editor.getLockedSkills()) || [];
-      statusEl.textContent = 'SP: ' + sp + ' | Champion: ' + (champId || 'nessuno') + ' | Bloccate: ' + locked.length;
+      statusEl.textContent = t('skill.statusLocked') + sp + ' | Champion: ' + (champId || 'none') + ' | ' + t('skill.locked') + locked.length;
       statusEl.className = 'pvu-status ok';
     }
   }
@@ -5055,6 +5566,7 @@ window.__pvu.skillScreen = PvuSkillScreen;
 
 // --- src/ui/voucher-screen.js ---
 const PvuVoucherScreen = (() => {
+  const tr = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuVoucherScreen]';
   let containerEl = null;
   let statusEl = null;
@@ -5072,17 +5584,16 @@ const PvuVoucherScreen = (() => {
 
     const title = document.createElement('div');
     title.className = 'pvu-section-title';
-    title.textContent = '🎟️ Voucher Editor';
+    title.textContent = tr('voucher.title');
     section.appendChild(title);
 
     const info = document.createElement('div');
     info.className = 'pvu-info';
-    info.textContent = 'Modifica i voucher. Il gioco salva automaticamente.';
+    info.textContent = tr('voucher.info');
     section.appendChild(info);
 
     const editor = window.__pvu.voucherEditor;
     const labels = editor.LABELS;
-    const emojis = editor.VOUCHER_EMOJI;
     const rows = [];
 
     for (let t = 0; t < labels.length; t++) {
@@ -5093,7 +5604,7 @@ const PvuVoucherScreen = (() => {
         const label = document.createElement('span');
         label.style.minWidth = '110px';
         label.style.display = 'inline-block';
-        label.textContent = emojis[typeIdx] + ' ' + labels[typeIdx];
+        label.textContent = labels[typeIdx];
         row.appendChild(label);
 
         const input = document.createElement('input');
@@ -5149,7 +5660,7 @@ const PvuVoucherScreen = (() => {
         counts[labels[rows[i].type]] = Math.max(0, parseInt(rows[i].inputEl.value, 10) || 0);
       }
       const result = editor.setAllVoucherCounts(counts);
-      showStatus(result.ok ? '✓ Tutti i voucher aggiornati' : '✗ ' + (result.error || 'Errore'), result.ok);
+      showStatus(result.ok ? tr('voucher.updated') : (result.error || tr('voucher.error')), result.ok);
     });
     allRow.appendChild(applyAllBtn);
     section.appendChild(allRow);
@@ -5157,7 +5668,7 @@ const PvuVoucherScreen = (() => {
     // Status
     statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = tr('voucher.waiting');
     section.appendChild(statusEl);
 
     containerEl.appendChild(section);
@@ -5170,7 +5681,7 @@ const PvuVoucherScreen = (() => {
     const val = parseInt(inputEl.value, 10);
     const editor = window.__pvu.voucherEditor;
     const result = editor.setVoucherCount(typeIdx, val);
-    showStatus(result.ok ? '✓ ' + editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : '✗ ' + (result.error || 'Errore'), result.ok);
+    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : (result.error || tr('voucher.error')), result.ok);
   }
 
   function showStatus(msg, ok) {
@@ -5186,7 +5697,7 @@ const PvuVoucherScreen = (() => {
     const editor = window.__pvu.voucherEditor;
     const counts = editor.getVoucherCounts();
     if (!counts) {
-      showStatus('gameData non disponibile', false);
+      showStatus('gameData unavailable', false);
       return;
     }
 
@@ -5220,6 +5731,7 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
 /* PokeVoid-Unlocked — Essenze tab (precompiled input, debounced live apply, no buttons). */
 (function () {
     'use strict';
+    const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
     var DEBOUNCE_MS = 350;
     var container = null;
     var selectEl = null;
@@ -5242,13 +5754,13 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
         container = document.createElement('div');
         container.id = 'pvu-essence-screen';
         var title = document.createElement('h3');
-        title.textContent = 'TYPE ESSENCE';
+        title.textContent = t('essence.title');
         container.appendChild(title);
 
         if (!ed || !ed.isReady()) {
             var warn = document.createElement('div');
             warn.className = 'pvu-warning';
-            warn.textContent = 'API Type Essence non trovata in questo build: editor disattivato.';
+            warn.textContent = t('essence.apiMissing');
             container.appendChild(warn);
             parentEl.appendChild(container);
             return;
@@ -5309,9 +5821,9 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
         if (!ed) return;
         var res = ed.applyEssence(currentKey, raw);
         if (res.ok) {
-            setStatus('\u2713 ' + res.key + ' = ' + res.target, 'ok');
+            setStatus(res.key + ' = ' + res.target, 'ok');
         } else {
-            setStatus('Errore: ' + res.reason, 'err');
+            setStatus(t('essence.error') + res.reason, 'err');
         }
     }
 
@@ -5349,6 +5861,7 @@ window.__pvu.voucherScreen = PvuVoucherScreen;
 // --- src/ui/battle-screen.js ---
 // Segue il pattern di roll-screen.js: createToggle, setSwitchState, refreshUI 2s
 const PvuBattleScreen = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuBattleScreen]';
   let containerEl = null;
   let refreshTimer = null;
@@ -5370,13 +5883,13 @@ const PvuBattleScreen = (() => {
 
     const encounterTitle = document.createElement('div');
     encounterTitle.className = 'pvu-section-title';
-    encounterTitle.textContent = 'SEMPRE SHINY';
+    encounterTitle.textContent = t('battle.shinyTitle');
     encounterSection.appendChild(encounterTitle);
 
     var encounterState = window.__pvu.encounterOverride?.getState?.() || {};
     var shinyResult = createToggle(
-      'Sempre Shiny',
-      'Ogni Pokemon incontrato nasce shiny (wild, boss, rival, legendary)',
+      t('battle.shinyName'),
+      t('battle.shinyDesc'),
       !!encounterState.shiny,
       function(val) {
         window.__pvu.encounterOverride?.toggleShiny?.(val);
@@ -5389,7 +5902,7 @@ const PvuBattleScreen = (() => {
     var shinyStatus = document.createElement('div');
     shinyStatus.className = 'pvu-status';
     shinyStatus.id = 'pvu-battle-shiny-status';
-    shinyStatus.textContent = 'In attesa...';
+    shinyStatus.textContent = t('battle.waiting');
     encounterSection.appendChild(shinyStatus);
 
     containerEl.appendChild(encounterSection);
@@ -5400,13 +5913,13 @@ const PvuBattleScreen = (() => {
 
     const captureTitle = document.createElement('div');
     captureTitle.className = 'pvu-section-title';
-    captureTitle.textContent = 'CATTURA TUTTO';
+    captureTitle.textContent = t('battle.catchTitle');
     captureSection.appendChild(captureTitle);
 
     var captureState = window.__pvu.captureOverride?.getState?.() || {};
     var captureResult = createToggle(
-      'Cattura Tutto',
-      'Quando il toggle Cattura è attivo: la prima Pokéball su un bersaglio singolo (non rivale/non scripted) cattura sempre.',
+      t('battle.catchName'),
+      t('battle.catchDesc'),
       !!captureState.enabled,
       function(val) {
         window.__pvu.captureOverride?.toggleCapture?.(val);
@@ -5416,8 +5929,8 @@ const PvuBattleScreen = (() => {
     toggleRefs.capture = captureResult.switchEl;
 
     var forceSpecialResult = createToggle(
-      'Cattura casi speciali',
-      'Consente la cattura forzata anche su incontri scripted, finali, speciali e boss-major (rischio: progressione quest). Default OFF.',
+      t('battle.specialsName'),
+      t('battle.specialsDesc'),
       !!captureState.forceSpecial,
       function(val) {
         window.__pvu.captureOverride?.toggleForceSpecial?.(val);
@@ -5430,7 +5943,7 @@ const PvuBattleScreen = (() => {
     var captureStatus = document.createElement('div');
     captureStatus.className = 'pvu-status';
     captureStatus.id = 'pvu-battle-capture-status';
-    captureStatus.textContent = 'In attesa...';
+    captureStatus.textContent = t('battle.waiting');
     captureSection.appendChild(captureStatus);
 
     containerEl.appendChild(captureSection);
@@ -5499,7 +6012,7 @@ const PvuBattleScreen = (() => {
 
     var shinyStatusEl = containerEl.querySelector('#pvu-battle-shiny-status');
     if (shinyStatusEl) {
-      var encHooks = encounterState.hooksApplied ? '✓ Hooks attivi' : '⏳ In attesa hooks...';
+      var encHooks = encounterState.hooksApplied ? t('roll.hooksActive') : t('roll.waitingHooks');
       var encDetail = encounterState.hooksApplied
         ? ' — Pokemon: ' + (encounterState.hookStats?.pokemonPatched || 0)
         : '';
@@ -5516,35 +6029,34 @@ const PvuBattleScreen = (() => {
       var levelText = '—';
       if (captureState.level === 2) {
         if (!captureState.hooksApplied) {
-          levelText = 'wrapper NON attivo (in attesa battle)';
+          levelText = t('battle.wrapperNotActive');
         } else {
           // Ladder tri-state onesto: wrapper → id confermato → override armato
-          var rungs = ['wrapper attivo'];
-          if (captureState.ballCommandId !== null) rungs.push('id confermato');
-          if (captureState.rollOverrideReady === true) rungs.push('override armato');
+          var rungs = [t('battle.wrapperActive')];
+          if (captureState.ballCommandId !== null) rungs.push(t('battle.idConfirmed'));
+          if (captureState.rollOverrideReady === true) rungs.push(t('battle.overrideArmed'));
           levelText = rungs.join(' / ');
           if (captureState.rollOverrideReady === false) {
-            levelText = rungs[0] + ' — override probabilità NON attivo';
+            levelText = rungs[0] + ' ' + t('battle.overrideNotActive');
           }
         }
       } else if (captureState.level === 1) {
-        levelText = 'L1 (fallback) ⚠️';
+        levelText = t('battle.l1Fallback');
       }
-      var badge = (captureState.level === 2 && captureState.rollOverrideReady === true) ? ' ✅' : '';
       var forced = captureState.injectedCount || 0;
       var realized = captureState.capturedCount || 0;
       var errors = captureState.errorCount || 0;
       var txt =
-        'Livello: ' + levelText + badge +
-        ' | Catture forzate: ' + forced +
-        ' | Catture realizzate: ' + realized;
-      txt += ' | Casi speciali: ' + (captureState.forceSpecial ? 'ON' : 'OFF');
-      if (errors > 0) txt += ' | Errori: ' + errors;
+        t('battle.level') + levelText +
+        ' | ' + t('battle.forcedCatches') + forced +
+        ' | ' + t('battle.realizedCatches') + realized;
+      txt += ' | ' + t('battle.specialCases') + (captureState.forceSpecial ? 'ON' : 'OFF');
+      if (errors > 0) txt += ' | ' + t('battle.errors') + errors;
       captureStatusEl.textContent = txt;
       captureStatusEl.className = 'pvu-status ' +
         (errors >= 3 ? 'err' : errors > 0 ? 'warn' : 'ok');
     } else if (captureStatusEl) {
-      captureStatusEl.textContent = 'Cattura Tutto disattivata';
+      captureStatusEl.textContent = t('battle.disabled');
       captureStatusEl.className = 'pvu-status';
     }
   }
@@ -5582,6 +6094,7 @@ window.__pvu.battleScreen = PvuBattleScreen;
 
 // --- src/ui/panel.js ---
 const PvuPanel = (() => {
+  const t = window.__pvu.i18n.t.bind(window.__pvu.i18n);
   const LOG_PREFIX = '[PvuPanel]';
   let containerEl = null;
   let panelEl = null;
@@ -5590,6 +6103,7 @@ const PvuPanel = (() => {
   // PARTE 4: interval money creato a ogni renderMoneyTab senza clear = leak di timer
   // a ogni cambio tab. Un solo timer alla volta, pulito su re-render e destroy.
   let moneyTimer = null;
+  let stripTimer = null;
   let activeScreen = null;
 
   function log() {
@@ -5620,26 +6134,27 @@ const PvuPanel = (() => {
     const header = document.createElement('div');
     header.className = 'pvu-header';
     const title = document.createElement('span');
-    title.textContent = '⚡ PokeVoid-Unlocked';
+    title.textContent = t('panel.title');
     header.appendChild(title);
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'pvu-close';
-    closeBtn.textContent = '✕';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', toggle);
     header.appendChild(closeBtn);
     panelEl.appendChild(header);
+    panelEl.appendChild(buildStrip());
 
     // Tabs
     const tabs = document.createElement('div');
     tabs.className = 'pvu-tabs';
 
-    const tabMoney = createTab('💰 Money', 'money');
-    const tabRoll = createTab('🎲 Roll', 'roll');
-    const tabSkill = createTab('🌳 Skill', 'skill');
-    const tabVoucher = createTab('🎟️ Voucher', 'voucher');
-    const tabBattle = createTab('🎯 Battle', 'battle');
-    const tabEssence = createTab('✨ Essenze', 'essence');
+    const tabMoney = createTab(t('tab.money'), 'money');
+    const tabRoll = createTab(t('tab.roll'), 'roll');
+    const tabSkill = createTab(t('tab.skill'), 'skill');
+    const tabVoucher = createTab(t('tab.voucher'), 'voucher');
+    const tabBattle = createTab(t('tab.battle'), 'battle');
+    const tabEssence = createTab(t('tab.essence'), 'essence');
 
     tabs.appendChild(tabMoney);
     tabs.appendChild(tabRoll);
@@ -5654,6 +6169,8 @@ const PvuPanel = (() => {
     tabContent.className = 'pvu-tab-content';
     tabContent.id = 'pvu-tab-content';
     panelEl.appendChild(tabContent);
+    panelEl.appendChild(buildFooter());
+    updateFooterHint();
 
     containerEl.appendChild(panelEl);
 
@@ -5673,7 +6190,10 @@ const PvuPanel = (() => {
     // Render tab iniziale
     renderTabContent(activeTab);
 
-    log('Panel creato');
+    refreshStrip();
+    stripTimer = setInterval(refreshStrip, 2000);
+
+    log('Panel created');
     return containerEl;
   }
 
@@ -5686,6 +6206,181 @@ const PvuPanel = (() => {
       switchTab(tabId);
     });
     return tab;
+  }
+
+  function buildStrip() {
+    const strip = document.createElement('div');
+    strip.className = 'pvu-strip';
+    strip.id = 'pvu-strip';
+    strip.appendChild(makeChip('pvu-strip-version', 'v' + window.__pvu.config.VERSION, ''));
+    strip.appendChild(makeChip('pvu-strip-game', '', ''));
+    strip.appendChild(makeChip('pvu-strip-overrides', '', ''));
+    return strip;
+  }
+
+  function makeChip(id, label, state) {
+    const chip = document.createElement('span');
+    chip.className = 'pvu-chip' + (state ? ' ' + state : '');
+    chip.id = id;
+    chip.textContent = label;
+    return chip;
+  }
+
+  function refreshStrip() {
+    const gameChip = document.getElementById('pvu-strip-game');
+    const ovrChip = document.getElementById('pvu-strip-overrides');
+    if (!gameChip || !ovrChip) return;
+    const hasBridge = !!(window.gameInfo && window.gameInfo.game);
+    if (hasBridge) {
+      gameChip.textContent = t('strip.gameRunning');
+      gameChip.className = 'pvu-chip ok';
+    } else {
+      gameChip.textContent = t('strip.gameWaiting');
+      gameChip.className = 'pvu-chip warn';
+    }
+    let count = 0;
+    try {
+      if (window.__pvu.encounterOverride && typeof window.__pvu.encounterOverride.getState === 'function') {
+        const s = window.__pvu.encounterOverride.getState();
+        if (s && s.shiny) count++;
+      }
+      if (window.__pvu.rollController && typeof window.__pvu.rollController.getState === 'function') {
+        const s = window.__pvu.rollController.getState();
+        if (s && (s.costOverride || s.luckLock || (s.itemCountExtra > 0))) count++;
+      }
+      if (window.__pvu.captureOverride && typeof window.__pvu.captureOverride.getState === 'function') {
+        const s = window.__pvu.captureOverride.getState();
+        if (s && (s.enabled || s.forceSpecial)) count++;
+      }
+    } catch (e) {
+      /* strip read failures are cosmetic; ignore */
+    }
+    ovrChip.textContent = t('strip.overrides') + ': ' + count;
+    ovrChip.className = count > 0 ? 'pvu-chip ok' : 'pvu-chip';
+  }
+
+  function buildFooter() {
+    const footer = document.createElement('div');
+    footer.className = 'pvu-footer';
+    const hint = document.createElement('span');
+    hint.className = 'pvu-footer-hint';
+    hint.id = 'pvu-footer-hint';
+    const aboutBtn = document.createElement('button');
+    aboutBtn.className = 'pvu-btn';
+    aboutBtn.textContent = t('about.title');
+    aboutBtn.addEventListener('click', openAbout);
+    footer.appendChild(hint);
+    footer.appendChild(aboutBtn);
+    return footer;
+  }
+
+  function updateFooterHint() {
+    const hint = document.getElementById('pvu-footer-hint');
+    if (!hint) return;
+    const combo = window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function'
+      ? window.__pvu.hotkey.getComboLabel()
+      : 'Ctrl+Shift+P';
+    hint.textContent = combo + ' ' + t('about.hintToggle') + '.';
+  }
+
+  function openAbout() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'pvu-modal-backdrop';
+    const card = document.createElement('div');
+    card.className = 'pvu-modal-card';
+    const title = document.createElement('div');
+    title.className = 'pvu-header-title';
+    title.textContent = t('about.title') + ' — ' + t('panel.title');
+    const close = document.createElement('button');
+    close.className = 'pvu-close';
+    close.textContent = '×';
+    close.addEventListener('click', closeAbout);
+    const rows = document.createElement('div');
+    rows.style.display = 'flex';
+    rows.style.flexDirection = 'column';
+    rows.style.gap = '12px';
+    const verRow = document.createElement('div');
+    verRow.className = 'pvu-modal-row';
+    const verLabel = document.createElement('span');
+    verLabel.className = 'pvu-modal-row-label';
+    verLabel.textContent = t('about.version');
+    const verValue = document.createElement('span');
+    verValue.className = 'pvu-modal-row-value';
+    verValue.textContent = 'v' + window.__pvu.config.VERSION;
+    verRow.appendChild(verLabel);
+    verRow.appendChild(verValue);
+    const scRow = document.createElement('div');
+    scRow.className = 'pvu-modal-row';
+    const scLabel = document.createElement('span');
+    scLabel.className = 'pvu-modal-row-label';
+    scLabel.textContent = t('about.shortcut');
+    const scValue = document.createElement('span');
+    scValue.className = 'pvu-modal-row-value';
+    scValue.id = 'pvu-about-combo';
+    scValue.textContent = window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function'
+      ? window.__pvu.hotkey.getComboLabel()
+      : 'Ctrl+Shift+P';
+    const rebind = document.createElement('button');
+    rebind.className = 'pvu-btn';
+    rebind.textContent = t('about.rebind');
+    rebind.addEventListener('click', function () {
+      rebind.textContent = t('about.pressKey') + '...';
+      if (window.__pvu.hotkey && typeof window.__pvu.hotkey.startCapture === 'function') {
+        // API reale: startCapture(cb) con cb(newCombo, oldCombo); null su cancel/timeout.
+        window.__pvu.hotkey.startCapture(function (newCombo) {
+          rebind.textContent = t('about.rebind');
+          if (!newCombo) return;
+          const label = typeof window.__pvu.hotkey.getComboLabel === 'function'
+            ? window.__pvu.hotkey.getComboLabel(newCombo)
+            : 'Ctrl+Shift+P';
+          updateComboLabel(label);
+          updateFooterHint();
+        });
+      }
+    });
+    scRow.appendChild(scLabel);
+    scRow.appendChild(scValue);
+    scRow.appendChild(rebind);
+    const featLabel = document.createElement('div');
+    featLabel.className = 'pvu-modal-row-label';
+    featLabel.textContent = t('about.features');
+    const list = document.createElement('ul');
+    list.className = 'pvu-features';
+    [
+      'Money override (permament, save-backed)',
+      'Roll controller: no-cost, luck lock, item count',
+      'Skill points: unlock skills of the active champion',
+      'Voucher editor (types / values of each owned voucher)',
+      'Battle: always-shiny, catch-any with special-case opt-in',
+      'Type essence editor (per-type values)',
+      'Toggle panel: ' + (window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function' ? window.__pvu.hotkey.getComboLabel() : 'Ctrl+Shift+P')
+    ].forEach(function (text) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
+    card.appendChild(title);
+    card.appendChild(close);
+    card.appendChild(rows);
+    rows.appendChild(verRow);
+    rows.appendChild(scRow);
+    rows.appendChild(featLabel);
+    rows.appendChild(list);
+    backdrop.appendChild(card);
+    backdrop.addEventListener('click', function (e) {
+      if (e.target === backdrop) closeAbout();
+    });
+    document.getElementById('pvu-container').appendChild(backdrop);
+  }
+
+  function closeAbout() {
+    const existing = document.querySelector('.pvu-modal-backdrop');
+    if (existing) existing.remove();
+  }
+
+  function updateComboLabel(newLabel) {
+    const el = document.getElementById('pvu-about-combo');
+    if (el) el.textContent = newLabel || 'Ctrl+Shift+P';
   }
 
   function switchTab(tabId) {
@@ -5746,7 +6441,7 @@ const PvuPanel = (() => {
 
     const title = document.createElement('div');
     title.className = 'pvu-section-title';
-    title.textContent = 'MONEY OVERRIDE';
+    title.textContent = t('money.title');
     section.appendChild(title);
 
     // Money input
@@ -5757,7 +6452,7 @@ const PvuPanel = (() => {
     input.type = 'number';
     input.className = 'pvu-input';
     input.id = 'pvu-money-input';
-    input.placeholder = 'Nuovo importo';
+    input.placeholder = t('money.placeholder');
     input.min = '0';
     input.max = String(Number.MAX_SAFE_INTEGER);
     input.value = '0';
@@ -5776,12 +6471,12 @@ const PvuPanel = (() => {
       const statusEl = parentEl.querySelector('#pvu-money-status');
       if (statusEl) {
         if (result.ok) {
-          statusEl.textContent = '✓ Money aggiornato a ' + (result.sceneMoney || input.value);
+          statusEl.textContent = t('money.updated') + (result.sceneMoney || input.value);
           statusEl.className = 'pvu-status ok';
           input.style.borderColor = '#4caf50';
           setTimeout(function() { input.style.borderColor = ''; }, 1000);
         } else {
-          statusEl.textContent = '✗ ' + (result.error || 'Errore');
+          statusEl.textContent = (result.error || t('money.error'));
           statusEl.className = 'pvu-status err';
         }
       }
@@ -5812,13 +6507,13 @@ const PvuPanel = (() => {
     const statusEl = document.createElement('div');
     statusEl.className = 'pvu-status';
     statusEl.id = 'pvu-money-status';
-    statusEl.textContent = 'In attesa...';
+    statusEl.textContent = t('money.waiting');
     section.appendChild(statusEl);
 
     // Info
     const info = document.createElement('div');
     info.className = 'pvu-info';
-    info.textContent = 'Modifica scene.money (run) + permaMoney (persistente). Il save viene salvato automaticamente.';
+    info.textContent = t('money.info');
     section.appendChild(info);
 
     parentEl.appendChild(section);
@@ -5833,7 +6528,7 @@ const PvuPanel = (() => {
   function updateMoneyStatus(statusEl, input) {
     if (!statusEl) return;
     const money = window.__pvu.moneyOverride.getMoney();
-    statusEl.textContent = 'Money corrente: $' + money.toLocaleString();
+    statusEl.textContent = t('money.current') + money.toLocaleString();
     statusEl.className = 'pvu-status ok';
     if (document.activeElement !== input) {
       input.value = money;
@@ -5845,7 +6540,7 @@ const PvuPanel = (() => {
     if (containerEl) {
       containerEl.classList.toggle('pvu-hidden', !isOpen);
     }
-    log('Panel', isOpen ? 'aperto' : 'chiuso');
+    log('Panel', isOpen ? 'opened' : 'closed');
   }
 
   function open() {
@@ -5861,6 +6556,10 @@ const PvuPanel = (() => {
   function destroy() {
     if (moneyTimer) clearInterval(moneyTimer);
     moneyTimer = null;
+    if (stripTimer) { clearInterval(stripTimer); stripTimer = null; }
+    const stripEl = document.getElementById('pvu-strip');
+    if (stripEl) stripEl.remove();
+    closeAbout();
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;
@@ -5874,13 +6573,14 @@ const PvuPanel = (() => {
     open: open,
     close: close,
     destroy: destroy,
+    openAbout: openAbout,
+    closeAbout: closeAbout,
     isOpen: function() { return isOpen; },
   };
 })();
 
 window.__pvu = window.__pvu || {};
 window.__pvu.panel = PvuPanel;
-
 
 // --- src/main.js ---
 (function() {
@@ -5905,7 +6605,7 @@ window.__pvu.panel = PvuPanel;
     console.warn.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
   }
 
-  log('Avvio PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
+  log('Starting PokeVoid-Unlocked v' + (pvu.config ? pvu.config.VERSION : '?') );
 
   // 0. Sanitizza salvataggi esistenti (prima che il gioco carichi i dati — anti-BigInt)
   //   Fix v1.2.1: permaMoney serializzato come BigInt/stringa "123n" causava
@@ -5914,7 +6614,7 @@ window.__pvu.panel = PvuPanel;
     try {
       pvu.storage.sanitizeSavedData();
     } catch (e) {
-      warn('Sanitizzazione salvataggi fallita:', e);
+      warn('Save sanitization failed:', e);
     }
   }
 
@@ -5924,14 +6624,16 @@ window.__pvu.panel = PvuPanel;
   // 2. Crea floating button (prima di tutto, anche se il gioco non è partito)
   let panelCreated = false;
 
+  function togglePanel() {
+    if (!panelCreated) {
+      createPanelAndUI();
+    } else {
+      pvu.panel.toggle();
+    }
+  }
+
   if (pvu.floatingBtn) {
-    pvu.floatingBtn.create(function() {
-      if (!panelCreated) {
-        createPanelAndUI();
-      } else {
-        pvu.panel.toggle();
-      }
-    });
+    pvu.floatingBtn.create(togglePanel);
   }
 
   // 3. Init game bridge (hook Phaser.Game)
@@ -5978,18 +6680,18 @@ window.__pvu.panel = PvuPanel;
     if (!scene) {
       if (hookAttempts > 60) {
         clearInterval(hookInterval);
-        log('Timeout: battle scene non trovato dopo 30s');
+        log('Timeout: battle scene not found after 30s');
       }
       return;
     }
 
     // Battle scene trovato — applica hooks
-    log('Battle scene trovato, applico hooks...');
+    log('Battle scene found, applying hooks...');
 
     if (pvu.rollController) {
       const applied = pvu.rollController.applyHooks();
       if (applied) {
-        log('Roll hooks applicati con successo');
+        log('Roll hooks applied successfully');
       } else {
         // FIX v1.4 (T2): qui un warn immediato era un falso positivo sistematico —
         // applyHooks() registra solo gli interceptor, hooksApplied diventa TRUE
@@ -5997,15 +6699,15 @@ window.__pvu.panel = PvuPanel;
         // successo è il log 'Hooks applicati con successo (getRerollCost patched)'
         // in roll-controller.js. Ora: info immediata + UN SOLO warn ritardato
         // (60s) che scatta solo se gli hooks non risultano ancora applicati.
-        log('Roll hooks in attesa di una phase (push/unshift) — informativo, non errore');
+        log('Roll hooks waiting for a phase (push/unshift) — informative, not an error');
         setTimeout(function() {
           try {
             const st = pvu.rollController.getState();
             if (!st.hooksApplied) {
-              warn('Roll hooks NON applicati dopo 60s (nessuna phase patchata) — verifica la compatibilita con la versione del gioco');
+              warn('Roll hooks NOT applied after 60s (no patched phase) — check compatibility with the game version');
             }
           } catch (e) {
-            warn('Verifica roll hooks a 60s fallita:', e);
+            warn('Roll hooks 60s check failed:', e);
           }
         }, 60000);
       }
@@ -6027,35 +6729,28 @@ window.__pvu.panel = PvuPanel;
     }
 
     clearInterval(hookInterval);
-    log('Tutti gli hooks applicati');
+    log('All hooks applied');
   }, 1000);
 
   function createPanelAndUI() {
     if (panelCreated) return;
     panelCreated = true;
 
-    log('Creazione UI...');
+    log('Creating UI...');
 
     if (pvu.panel) {
       pvu.panel.create();
     }
 
-    log('UI creata');
+    log('UI created');
   }
 
-  // 7. Keyboard shortcut: Ctrl+Shift+P per toggle panel
-  document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.shiftKey && e.key === 'P') {
-      e.preventDefault();
-      if (!panelCreated) {
-        createPanelAndUI();
-      } else {
-        pvu.panel.toggle();
-      }
-    }
-  });
+  // Hotkey: toggle panel (rebindable, default Ctrl+Shift+P)
+  if (pvu.hotkey) {
+    pvu.hotkey.init(togglePanel);
+  }
 
-  log('Bootstrap completato — in attesa del gioco...');
+  log('Bootstrap complete — waiting for the game...');
 
 })();
 
