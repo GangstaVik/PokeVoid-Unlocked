@@ -3,7 +3,7 @@
 // @namespace    local.pokevoid-unlocked
 // @version      1.6.0
 // @description  Skill editor, roll controller, money override per PokéVoid
-// @author       PokeRogueMOD
+// @author       GangstaVik
 // @match        https://pokevoid.com/*
 // @updateURL    https://raw.githubusercontent.com/GangstaVik/PokeVoid-Unlocked/master/pokevoid-unlocked.user.js
 // @downloadURL  https://raw.githubusercontent.com/GangstaVik/PokeVoid-Unlocked/master/pokevoid-unlocked.user.js
