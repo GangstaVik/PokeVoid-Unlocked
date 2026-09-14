@@ -71,6 +71,15 @@ const PvuPanel = (() => {
     tabs.appendChild(tabEssence);
     panelEl.appendChild(tabs);
 
+    // Fix v1.6.0: scroll orizzontale tabs con rotella del mouse
+    // Solo se le tabs trasbordano (scrollWidth > clientWidth)
+    tabs.addEventListener('wheel', function(e) {
+      if (tabs.scrollWidth > tabs.clientWidth) {
+        e.preventDefault();
+        tabs.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+
     // Tab content area
     const tabContent = document.createElement('div');
     tabContent.className = 'pvu-tab-content';
@@ -137,8 +146,10 @@ const PvuPanel = (() => {
     const gameChip = document.getElementById('pvu-strip-game');
     const ovrChip = document.getElementById('pvu-strip-overrides');
     if (!gameChip || !ovrChip) return;
-    const hasBridge = !!(window.gameInfo && window.gameInfo.game);
-    if (hasBridge) {
+    // Fix v1.6.0: usa window.__pvu_game (settato dal constructor hook in game-bridge.js)
+    // come segnale autorevole dell'hook, con fallback a bridge.getGame()
+    const hooked = !!(window.__pvu_game || (window.__pvu && window.__pvu.bridge && window.__pvu.bridge.getGame()));
+    if (hooked) {
       gameChip.textContent = t('strip.gameRunning');
       gameChip.className = 'pvu-chip ok';
     } else {
@@ -448,22 +459,37 @@ const PvuPanel = (() => {
     }
   }
 
+  // Fix v1.6.0: sincronizza il FAB con lo stato del panel (nascondi quando aperto)
+  function syncFab() {
+    try {
+      if (!window.__pvu || !window.__pvu.floatingBtn) return;
+      if (isOpen) {
+        window.__pvu.floatingBtn.hide();
+      } else {
+        window.__pvu.floatingBtn.show();
+      }
+    } catch (e) { /* cosmetic; ignore */ }
+  }
+
   function toggle() {
     isOpen = !isOpen;
     if (containerEl) {
       containerEl.classList.toggle('pvu-hidden', !isOpen);
     }
+    syncFab();
     log('Panel', isOpen ? 'opened' : 'closed');
   }
 
   function open() {
     isOpen = true;
     if (containerEl) containerEl.classList.remove('pvu-hidden');
+    syncFab();
   }
 
   function close() {
     isOpen = false;
     if (containerEl) containerEl.classList.add('pvu-hidden');
+    syncFab();
   }
 
   function destroy() {
@@ -481,6 +507,7 @@ const PvuPanel = (() => {
     containerEl = null;
     panelEl = null;
     isOpen = false;
+    syncFab();
     if (destroyCb) {
       const cb = destroyCb;
       destroyCb = null;

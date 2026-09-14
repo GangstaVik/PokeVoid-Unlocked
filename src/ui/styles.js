@@ -135,6 +135,11 @@ const PvuStyles = (function () {
         background: var(--pvu-bg);
         border-bottom: 1px solid var(--pvu-border);
         flex-shrink: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .pvu-tabs::-webkit-scrollbar {
+        display: none;
       }
       .pvu-tab {
         padding: var(--pvu-space-2) var(--pvu-space-3);
