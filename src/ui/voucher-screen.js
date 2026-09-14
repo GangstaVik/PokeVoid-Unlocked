@@ -94,7 +94,7 @@ const PvuVoucherScreen = (() => {
         counts[labels[rows[i].type]] = Math.max(0, parseInt(rows[i].inputEl.value, 10) || 0);
       }
       const result = editor.setAllVoucherCounts(counts);
-      showStatus(result.ok ? tr('voucher.updated') : (result.error || tr('voucher.error')), result.ok);
+      showStatus(result.ok ? tr('voucher.updated') : errorMessage(result), result.ok);
     });
     allRow.appendChild(applyAllBtn);
     section.appendChild(allRow);
@@ -111,11 +111,18 @@ const PvuVoucherScreen = (() => {
     refreshUI();
   }
 
+  function errorMessage(result) {
+    if (result && result.code && result.code !== 'internal') {
+      return tr('voucher.' + result.code);
+    }
+    return (result && result.error) || tr('voucher.error');
+  }
+
   function applyVoucher(typeIdx, inputEl) {
     const val = parseInt(inputEl.value, 10);
     const editor = window.__pvu.voucherEditor;
     const result = editor.setVoucherCount(typeIdx, val);
-    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : (result.error || tr('voucher.error')), result.ok);
+    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : errorMessage(result), result.ok);
   }
 
   function showStatus(msg, ok) {

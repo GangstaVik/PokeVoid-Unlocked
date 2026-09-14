@@ -11,6 +11,7 @@ const PvuPanel = (() => {
   let moneyTimer = null;
   let stripTimer = null;
   let activeScreen = null;
+  let destroyCb = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -253,7 +254,7 @@ const PvuPanel = (() => {
     const list = document.createElement('ul');
     list.className = 'pvu-features';
     [
-      'Money override (permament, save-backed)',
+      'Money override (permanent, save-backed)',
       'Roll controller: no-cost, luck lock, item count',
       'Skill points: unlock skills of the active champion',
       'Voucher editor (types / values of each owned voucher)',
@@ -262,6 +263,7 @@ const PvuPanel = (() => {
       'Toggle panel: ' + (window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function' ? window.__pvu.hotkey.getComboLabel() : 'Ctrl+Shift+P')
     ].forEach(function (text) {
       const li = document.createElement('li');
+      if (text.indexOf('Toggle panel:') === 0) li.id = 'pvu-about-toggle-combo';
       li.textContent = text;
       list.appendChild(li);
     });
@@ -287,6 +289,8 @@ const PvuPanel = (() => {
   function updateComboLabel(newLabel) {
     const el = document.getElementById('pvu-about-combo');
     if (el) el.textContent = newLabel || 'Ctrl+Shift+P';
+    const toggleLi = document.getElementById('pvu-about-toggle-combo');
+    if (toggleLi) toggleLi.textContent = 'Toggle panel: ' + (newLabel || 'Ctrl+Shift+P');
   }
 
   function switchTab(tabId) {
@@ -304,6 +308,9 @@ const PvuPanel = (() => {
   function renderTabContent(tabId) {
     const content = document.getElementById('pvu-tab-content');
     if (!content) return;
+
+    // PARTE 4: nessun timer orfano al cambio tab — il money timer muore qui se non rinasce nel tab Money
+    if (moneyTimer) { clearInterval(moneyTimer); moneyTimer = null; }
 
     // Distruggi la schermata precedente (evita leak di listener/timer su cambio tab)
     if (activeScreen && activeScreen.destroy) {
@@ -466,11 +473,24 @@ const PvuPanel = (() => {
     const stripEl = document.getElementById('pvu-strip');
     if (stripEl) stripEl.remove();
     closeAbout();
+    if (activeScreen && activeScreen.destroy) {
+      try { activeScreen.destroy(); } catch (e) { /* ignore */ }
+    }
+    activeScreen = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;
     isOpen = false;
+    if (destroyCb) {
+      const cb = destroyCb;
+      destroyCb = null;
+      cb();
+    }
     log('destroy');
+  }
+
+  function setOnDestroy(cb) {
+    destroyCb = cb;
   }
 
   return {
@@ -479,6 +499,7 @@ const PvuPanel = (() => {
     open: open,
     close: close,
     destroy: destroy,
+    setOnDestroy: setOnDestroy,
     openAbout: openAbout,
     closeAbout: closeAbout,
     isOpen: function() { return isOpen; },

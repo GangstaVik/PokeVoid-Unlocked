@@ -82,14 +82,14 @@ const PvuHotkey = (function () {
 
   function handleCaptureKey(e) {
     if (MODIFIER_KEYS.indexOf(e.key) !== -1) return;
-    if (e.key && e.key.length !== 1) return;
-    const ctrl = e.ctrlKey || e.metaKey;
-    if (!ctrl && !e.altKey) return;
     if (e.key === 'Escape') {
       stopCapture();
       if (captureCb) { captureCb(null, combo); captureCb = null; }
       return;
     }
+    if (e.key && e.key.length !== 1) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl && !e.altKey) return;
     const newCombo = {
       ctrl: !!e.ctrlKey,
       alt: !!e.altKey,

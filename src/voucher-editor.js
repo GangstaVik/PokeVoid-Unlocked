@@ -36,15 +36,15 @@ const PvuVoucherEditor = (() => {
   function setVoucherCount(typeIndex, value) {
     try {
       if (typeIndex < 0 || typeIndex > 3) {
-        return { ok: false, error: 'Tipo non valido' };
+        return { ok: false, code: 'invalid_type' };
       }
       const numVal = Math.max(0, Math.floor(Number(value)));
       if (isNaN(numVal)) {
-        return { ok: false, error: 'Valore non valido' };
+        return { ok: false, code: 'invalid_value' };
       }
       const gd = getGameData();
       if (!gd) {
-        return { ok: false, error: 'gameData non disponibile' };
+        return { ok: false, code: 'no_game_data' };
       }
       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -54,7 +54,7 @@ const PvuVoucherEditor = (() => {
       return { ok: true };
     } catch (e) {
       log('setVoucherCount error:', e);
-      return { ok: false, error: e.message };
+      return { ok: false, code: 'internal', error: e.message };
     }
   }
 
@@ -62,7 +62,7 @@ const PvuVoucherEditor = (() => {
     try {
       const gd = getGameData();
       if (!gd) {
-        return { ok: false, error: 'gameData non disponibile' };
+        return { ok: false, code: 'no_game_data' };
       }
       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -87,7 +87,7 @@ const PvuVoucherEditor = (() => {
       return { ok: true };
     } catch (e) {
       log('setAllVoucherCounts error:', e);
-      return { ok: false, error: e.message };
+      return { ok: false, code: 'internal', error: e.message };
     }
   }
 

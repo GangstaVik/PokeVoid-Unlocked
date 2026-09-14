@@ -232,6 +232,9 @@ const PvuI18n = (function () {
       'voucher.updated': 'All vouchers updated',
       'voucher.waiting': 'Waiting...',
       'voucher.error': 'Error',
+      'voucher.invalidType': 'Invalid voucher type',
+      'voucher.invalidValue': 'Invalid value',
+      'voucher.noGameData': 'Game data unavailable',
       // Essence tab
       'essence.title': 'TYPE ESSENCE',
       'essence.apiMissing': 'Type Essence API not found in this build: editor disabled.',
@@ -4120,15 +4123,15 @@ const PvuVoucherEditor = (() => {
   function setVoucherCount(typeIndex, value) {
     try {
       if (typeIndex < 0 || typeIndex > 3) {
-        return { ok: false, error: 'Tipo non valido' };
+        return { ok: false, code: 'invalid_type' };
       }
       const numVal = Math.max(0, Math.floor(Number(value)));
       if (isNaN(numVal)) {
-        return { ok: false, error: 'Valore non valido' };
+        return { ok: false, code: 'invalid_value' };
       }
       const gd = getGameData();
       if (!gd) {
-        return { ok: false, error: 'gameData non disponibile' };
+        return { ok: false, code: 'no_game_data' };
       }
       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -4138,7 +4141,7 @@ const PvuVoucherEditor = (() => {
       return { ok: true };
     } catch (e) {
       log('setVoucherCount error:', e);
-      return { ok: false, error: e.message };
+      return { ok: false, code: 'internal', error: e.message };
     }
   }
 
@@ -4146,7 +4149,7 @@ const PvuVoucherEditor = (() => {
     try {
       const gd = getGameData();
       if (!gd) {
-        return { ok: false, error: 'gameData non disponibile' };
+        return { ok: false, code: 'no_game_data' };
       }
       if (!gd.voucherCounts || typeof gd.voucherCounts !== 'object') {
         gd.voucherCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -4171,7 +4174,7 @@ const PvuVoucherEditor = (() => {
       return { ok: true };
     } catch (e) {
       log('setAllVoucherCounts error:', e);
-      return { ok: false, error: e.message };
+      return { ok: false, code: 'internal', error: e.message };
     }
   }
 
@@ -4948,14 +4951,14 @@ const PvuHotkey = (function () {
 
   function handleCaptureKey(e) {
     if (MODIFIER_KEYS.indexOf(e.key) !== -1) return;
-    if (e.key && e.key.length !== 1) return;
-    const ctrl = e.ctrlKey || e.metaKey;
-    if (!ctrl && !e.altKey) return;
     if (e.key === 'Escape') {
       stopCapture();
       if (captureCb) { captureCb(null, combo); captureCb = null; }
       return;
     }
+    if (e.key && e.key.length !== 1) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl && !e.altKey) return;
     const newCombo = {
       ctrl: !!e.ctrlKey,
       alt: !!e.altKey,
@@ -5660,7 +5663,7 @@ const PvuVoucherScreen = (() => {
         counts[labels[rows[i].type]] = Math.max(0, parseInt(rows[i].inputEl.value, 10) || 0);
       }
       const result = editor.setAllVoucherCounts(counts);
-      showStatus(result.ok ? tr('voucher.updated') : (result.error || tr('voucher.error')), result.ok);
+      showStatus(result.ok ? tr('voucher.updated') : errorMessage(result), result.ok);
     });
     allRow.appendChild(applyAllBtn);
     section.appendChild(allRow);
@@ -5677,11 +5680,18 @@ const PvuVoucherScreen = (() => {
     refreshUI();
   }
 
+  function errorMessage(result) {
+    if (result && result.code && result.code !== 'internal') {
+      return tr('voucher.' + result.code);
+    }
+    return (result && result.error) || tr('voucher.error');
+  }
+
   function applyVoucher(typeIdx, inputEl) {
     const val = parseInt(inputEl.value, 10);
     const editor = window.__pvu.voucherEditor;
     const result = editor.setVoucherCount(typeIdx, val);
-    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : (result.error || tr('voucher.error')), result.ok);
+    showStatus(result.ok ? editor.LABELS[typeIdx] + ' = ' + Math.max(0, val || 0) : errorMessage(result), result.ok);
   }
 
   function showStatus(msg, ok) {
@@ -6105,6 +6115,7 @@ const PvuPanel = (() => {
   let moneyTimer = null;
   let stripTimer = null;
   let activeScreen = null;
+  let destroyCb = null;
 
   function log() {
     console.log.apply(console, [LOG_PREFIX].concat(Array.from(arguments)));
@@ -6347,7 +6358,7 @@ const PvuPanel = (() => {
     const list = document.createElement('ul');
     list.className = 'pvu-features';
     [
-      'Money override (permament, save-backed)',
+      'Money override (permanent, save-backed)',
       'Roll controller: no-cost, luck lock, item count',
       'Skill points: unlock skills of the active champion',
       'Voucher editor (types / values of each owned voucher)',
@@ -6356,6 +6367,7 @@ const PvuPanel = (() => {
       'Toggle panel: ' + (window.__pvu.hotkey && typeof window.__pvu.hotkey.getComboLabel === 'function' ? window.__pvu.hotkey.getComboLabel() : 'Ctrl+Shift+P')
     ].forEach(function (text) {
       const li = document.createElement('li');
+      if (text.indexOf('Toggle panel:') === 0) li.id = 'pvu-about-toggle-combo';
       li.textContent = text;
       list.appendChild(li);
     });
@@ -6381,6 +6393,8 @@ const PvuPanel = (() => {
   function updateComboLabel(newLabel) {
     const el = document.getElementById('pvu-about-combo');
     if (el) el.textContent = newLabel || 'Ctrl+Shift+P';
+    const toggleLi = document.getElementById('pvu-about-toggle-combo');
+    if (toggleLi) toggleLi.textContent = 'Toggle panel: ' + (newLabel || 'Ctrl+Shift+P');
   }
 
   function switchTab(tabId) {
@@ -6398,6 +6412,9 @@ const PvuPanel = (() => {
   function renderTabContent(tabId) {
     const content = document.getElementById('pvu-tab-content');
     if (!content) return;
+
+    // PARTE 4: nessun timer orfano al cambio tab — il money timer muore qui se non rinasce nel tab Money
+    if (moneyTimer) { clearInterval(moneyTimer); moneyTimer = null; }
 
     // Distruggi la schermata precedente (evita leak di listener/timer su cambio tab)
     if (activeScreen && activeScreen.destroy) {
@@ -6560,11 +6577,24 @@ const PvuPanel = (() => {
     const stripEl = document.getElementById('pvu-strip');
     if (stripEl) stripEl.remove();
     closeAbout();
+    if (activeScreen && activeScreen.destroy) {
+      try { activeScreen.destroy(); } catch (e) { /* ignore */ }
+    }
+    activeScreen = null;
     if (containerEl && containerEl.parentNode) containerEl.parentNode.removeChild(containerEl);
     containerEl = null;
     panelEl = null;
     isOpen = false;
+    if (destroyCb) {
+      const cb = destroyCb;
+      destroyCb = null;
+      cb();
+    }
     log('destroy');
+  }
+
+  function setOnDestroy(cb) {
+    destroyCb = cb;
   }
 
   return {
@@ -6573,6 +6603,7 @@ const PvuPanel = (() => {
     open: open,
     close: close,
     destroy: destroy,
+    setOnDestroy: setOnDestroy,
     openAbout: openAbout,
     closeAbout: closeAbout,
     isOpen: function() { return isOpen; },
@@ -6740,6 +6771,10 @@ window.__pvu.panel = PvuPanel;
 
     if (pvu.panel) {
       pvu.panel.create();
+      // Dopo un destroy() il latch torna a false così un toggle successivo ricrea il pannello
+      pvu.panel.setOnDestroy(function() {
+        panelCreated = false;
+      });
     }
 
     log('UI created');

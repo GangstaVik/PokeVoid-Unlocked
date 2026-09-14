@@ -41,6 +41,7 @@ src/
 ├── skill-tree-editor.js       — Skill Tree Editor
 ├── money-override.js          — Money Override (BigInt-safe)
 ├── voucher-editor.js          — Voucher Editor
+├── essence-editor.js          — Type essence editor (runtime API discovery)
 ├── game-bridge.js             — game API bridge
 ├── phase-observer.js          — battle phase hooks
 ├── ui/
@@ -51,6 +52,7 @@ src/
 │   ├── roll-screen.js         — roll controls UI
 │   ├── skill-screen.js        — skill editor UI
 │   ├── voucher-screen.js      — voucher editor UI
+│   ├── essence-screen.js      — type essence editor UI
 │   └── styles.js              — UI styling
 ├── utils/
 │   ├── config.js              — configuration

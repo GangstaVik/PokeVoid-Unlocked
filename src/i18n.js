@@ -79,6 +79,9 @@ const PvuI18n = (function () {
       'voucher.updated': 'All vouchers updated',
       'voucher.waiting': 'Waiting...',
       'voucher.error': 'Error',
+      'voucher.invalidType': 'Invalid voucher type',
+      'voucher.invalidValue': 'Invalid value',
+      'voucher.noGameData': 'Game data unavailable',
       // Essence tab
       'essence.title': 'TYPE ESSENCE',
       'essence.apiMissing': 'Type Essence API not found in this build: editor disabled.',

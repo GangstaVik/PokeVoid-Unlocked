@@ -156,6 +156,10 @@
 
     if (pvu.panel) {
       pvu.panel.create();
+      // Dopo un destroy() il latch torna a false così un toggle successivo ricrea il pannello
+      pvu.panel.setOnDestroy(function() {
+        panelCreated = false;
+      });
     }
 
     log('UI created');
