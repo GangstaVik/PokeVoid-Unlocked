@@ -2,6 +2,8 @@
 
 > Revision of v1 applying ALL the fixes from Poseidon's critical review (RE evidence: bundle v3.1.8, index-BA2n6IsS.js, 25.7MB, esbuild keepNames).
 
+> **Versioning note**: three independent version spaces coexist in this document and are not meant to match: the document revision (v2.0, this title), the userscript version (`@version 1.0.0` in the header of §1), and the analyzed game bundle (v3.1.8, RE report §1). A bump in one implies nothing about the others.
+
 ## Table of Contents
 
 - [1. Userscript Header](#1-userscript-header)
@@ -42,9 +44,13 @@
 
 `@run-at document-start` is required: hook Phaser.Game before the bundle injects. `@noframes` avoids double loading. `@grant none`.
 
+> The `@description` line above is Italian because the header mirrors the userscript template in `build.js` (line 41, `HEADER`), where the string is verbatim `// @description  Skill editor, roll controller, money override per PokéVoid`. Leave it unchanged (Italian included) so the built file stays byte-identical to the template. Note: the block above is an excerpt of the template — `build.js` also emits `@author`, `@updateURL`, `@downloadURL` and currently `@version 1.6.0`.
+
 ## 2. Game Access — 3-Level Strategy
 
 1. **Hook Phaser.Game (primary)**: monkeypatch the constructor → `new Fn.Game(xfD)` @22747724 in startGame; save the instance in `window.__pvu_game`.
+
+> `xfD` is the minified name of the game-config object passed to the Phaser.Game constructor in the v3.1.8 bundle (`new Fn.Game(xfD)` @ 22747724, see RE report §6). It is a build artifact: the name changes on any rebuild, so the hook must not depend on it — the hook patches the `Phaser.Game` class itself, not the call site.
 2. **Poll window.gameInfo (state)**: written by `updateGameInfo()` on every transition (playTime, biome, wave, party, modeChain). Poll every 500ms (100ms during transitions).
 3. **CanvasPool fallback (battle)**: `CanvasPool.pool[0].parent.game.scene.keys.battle`. Only when 1 and 2 fail, only in battle.
 

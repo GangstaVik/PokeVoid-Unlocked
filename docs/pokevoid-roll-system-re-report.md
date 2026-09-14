@@ -143,6 +143,8 @@ u(JFe, "getPartyLuckValue");
 | reward type pool | `getRandomRewardType` @ 18664952 | `PERMA_MONEY_1..5` for percentiles 20/50/75/90; `PERMA_MODIFIER`/`PERMA_MONEY_AND_MODIFIER` below the 80th; `PERMA_MONEY_*` above |
 | rarity | `getRaritiesForRewardType` @ 16259742; `isRewardAvailableAtRarity` @ 16259827 | enum St: ROGUE, MASTER, LEGENDARY, GREAT |
 
+> Review note: the "§3.2 PARENT marker `#126`" reference from the latest review round does not map to this document — there is no `#126`/PARENT marker and section 3 has no subsections (it is a single runtime-values table). Not resolved in this analysis — tracked separately.
+
 ---
 
 ## 4. Save
@@ -155,6 +157,8 @@ u(JFe, "getPartyLuckValue");
 - **Migration:** `updateVersionBackup(t,n)` @ 18089052 (saves a backup before migrating from an older version); backup invalidation on version breach @ 18179796.
 
 > **Userscript implication:** you can write `localStorage[\`data_${username}\`]` directly with valid JSON (bigint as string), or — more safely — manipulate the fields in memory via the `gameData` object and let the game save at the right time (`scene.saveToLocalStorage()`).
+
+> Review note: the "§4 'gift'/'obtained' synonyms" reference from the latest review round does not map to this document — section 4 already uses consistent terminology and no "gift"/"obtained" term pair exists (the save format is produced by the game, never by the mod). Not resolved in this analysis — tracked separately.
 
 ---
 
@@ -176,7 +180,7 @@ u(JFe, "getPartyLuckValue");
 - Game construction: **`new Fn.Game(xfD)`** @ 22747724, followed by `ji.sound.pauseOnBlur=!1`. `Fn` is the renamed Phaser import (local alias), `xfD` the game config variable defined in the same module.
 - The statement is wrapped in `startGame` (function `YfD`, try/catch with `console.error("Error starting the game:")`).
 - Boot flow: `KfD()` (boot: fetch `/manifest.json` → `ji.manifest`) followed by a `visibilitychange` listener (driveSyncService).
-- For a reliable post-start hook: poll `window.gameInfo` (written by `updateGameInfo` at every phase transition) to latch onto the battle scene, or hook the cost/options prototype via `Fn.Game` (all classes are on window-scope module level, reachable through the module chain with `keepNames`).
+- For a reliable post-start hook the three access levels run concurrently as a self-healing cascade (design.md §2, order 1 → 2 → 3; implementation in `src/game-bridge.js`, retry loop in `src/main.js` ~86–149): hook the `Phaser.Game` constructor (`hookPhaserGame`, guarded by `Phaser.Game[Symbol.for('pvuPatched')]` so it is applied exactly once — the anti-re-wrap marker — and re-run by `getGame()` if Phaser arrives late; it is retried every 1000 ms until a battle scene resolves (`getBattleScene()`, timeout after 60 attempts / 30 s)) **and** poll `window.gameInfo` (written by `updateGameInfo` at every phase transition) as the independent state channel — the two are complementary, not alternatives; the CanvasPool fallback (`pool.pool[0].parent.game.scene.keys.battle`) resolves the battle scene only when the first two fail. The hook patches the `Phaser.Game` class (the `Fn` import), not the `new Fn.Game(xfD)` call site @ 22747724. All classes are on window-scope module level, reachable through the module chain with `keepNames`.
 
 ---
 
