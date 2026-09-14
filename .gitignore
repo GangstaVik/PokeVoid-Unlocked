@@ -24,3 +24,6 @@ Thumbs.db
 
 # CI artifacts
 .copilot-share/
+
+# Superpowers plans (local only, not versioned)
+docs/superpowers/
