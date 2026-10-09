@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" role="img" aria-labelledby="title">
+  <title id="title">PV Unlocked: Ctrl Shift P opens a panel with shiny, catch, roll and money controls; a sparkling PV floating button sits beside a catch ball.</title>
+  <rect width="1200" height="340" rx="16" fill="#0B1220"/>
+  <text x="40" y="70" fill="#E2E8F0" font-size="40" font-weight="bold" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PV · UNLOCKED</text>
+  <rect x="40" y="91" width="168" height="28" rx="14" fill="#2563EB"/>
+  <text x="54" y="110" fill="#FFFFFF" font-size="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Release v1.6.0</text>
+  <rect x="222" y="91" width="186" height="28" rx="14" fill="#7C3AED"/>
+  <text x="235" y="110" fill="#FFFFFF" font-size="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PokeVoid v3.1.8</text>
+  <rect x="422" y="91" width="126" height="28" rx="14" fill="#16A34A"/>
+  <text x="435" y="110" fill="#FFFFFF" font-size="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">License MIT</text>
+  <text x="40" y="156" fill="#5EEAD4" font-size="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">OPEN PANEL</text>
+  <g fill="#1E293B" stroke="#5EEAD4" stroke-width="1.5">
+    <rect x="40" y="173" width="88" height="54" rx="9"/>
+    <rect x="140" y="173" width="102" height="54" rx="9"/>
+    <rect x="254" y="173" width="54" height="54" rx="9"/>
+  </g>
+  <g fill="#E2E8F0" font-size="19" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="84" y="208">Ctrl</text><text x="191" y="208">Shift</text><text x="281" y="208">P</text>
+  </g>
+  <path d="M326 200h36m-12-10 12 10-12 10" fill="none" stroke="#5EEAD4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="383" y="139" width="516" height="180" rx="14" fill="#0F1B2E" stroke="#334155" stroke-width="2"/>
+  <text x="406" y="165" fill="#FDE68A" font-size="15" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PV / CONTROLS</text>
+  <g fill="#E2E8F0" font-size="17" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="406" y="197">Always Shiny</text><text x="406" y="233">Catch Any</text>
+    <text x="406" y="269">Roll Controller</text><text x="406" y="305">Money</text>
+  </g>
+  <g fill="#5EEAD4">
+    <rect x="826" y="178" width="50" height="22" rx="11"/><rect x="826" y="214" width="50" height="22" rx="11"/>
+    <rect x="826" y="250" width="50" height="22" rx="11"/><rect x="826" y="286" width="50" height="22" rx="11"/>
+  </g>
+  <g fill="#0B1220"><circle cx="863" cy="189" r="8"/><circle cx="863" cy="225" r="8"/><circle cx="863" cy="261" r="8"/><circle cx="863" cy="297" r="8"/></g>
+  <path d="M1084 126l6 19 19 6-19 6-6 19-6-19-19-6 19-6z" fill="#FDE68A"/>
+  <path d="M1121 166l3 10 10 3-10 3-3 10-3-10-10-3 10-3z" fill="#F59E0B"/>
+  <circle cx="1077" cy="255" r="54" fill="#0F1B2E" stroke="#F59E0B" stroke-width="3"/>
+  <text x="1077" y="268" text-anchor="middle" fill="#FDE68A" font-size="34" font-weight="bold" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PV</text>
+  <circle cx="968" cy="277" r="27" fill="#E2E8F0"/>
+  <path d="M941 277a27 27 0 0 1 54 0z" fill="#F87171"/>
+  <path d="M942 277h52" stroke="#0B1220" stroke-width="5"/>
+  <circle cx="968" cy="277" r="8" fill="#E2E8F0" stroke="#0B1220" stroke-width="4"/>
+</svg>
